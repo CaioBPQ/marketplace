@@ -1,0 +1,255 @@
+// ═══════════════════════════════════════════════════════════
+// PILAR I - ESTRUTURA DE DADOS: Schema completo do banco
+// AutoMarket - Marketplace Automotivo
+// ═══════════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Tabela de Usuários ───────────────────────────────────
+// Suporta dois perfis: USUARIO (comprador) e LOJISTA (vendedor)
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  senha         String   // Hash bcrypt - nunca armazenar texto plano
+  nome          String
+  telefone      String?
+  role          String   @default("USUARIO") // USUARIO | LOJISTA | ADMIN
+  avatarUrl     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relacionamentos
+  loja          Loja?    // Um lojista pode ter uma loja
+  leads         Lead[]   // Leads gerados pelo usuário
+}
+
+// ─── Tabela de Lojas/Concessionárias ─────────────────────
+// Relacionamento 1:N - Uma loja possui vários veículos
+model Loja {
+  id                    String   @id @default(cuid())
+  nome                  String
+  cnpj                  String   @unique
+  descricao             String?
+  logoUrl               String?
+  bannerUrl             String?
+  
+  // Localização (Foco em concessionárias locais)
+  endereco              String
+  cidade                String
+  estado                String
+  cep                   String
+  latitude              Float?
+  longitude             Float?
+  
+  // Contato
+  telefone              String
+  whatsapp              String
+  email                 String
+  website               String?
+  
+  // Horário de funcionamento
+  horarioFuncionamento  String?  // Ex: "Seg-Sex: 8h-18h | Sáb: 8h-13h"
+  
+  // Plano de assinatura (Pilar III - Monetização)
+  plano                 String   @default("BASICO") // BASICO | PREMIUM | ENTERPRISE
+  stripeCustomerId      String?
+  stripeSubscriptionId  String?
+  assinaturaAtiva       Boolean  @default(false)
+  assinaturaExpira      DateTime?
+  
+  ativo                 Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relacionamentos
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  veiculos              Veiculo[]
+  leads                 Lead[]
+  servicos              Servico[]
+  agendamentos          AgendamentoServico[]
+  transacoes            TransacaoPagamento[]
+}
+
+// ─── Tabela de Veículos ──────────────────────────────────
+// Atributos técnicos completos para filtros facetados
+model Veiculo {
+  id            String   @id @default(cuid())
+  
+  // Dados do veículo
+  marca         String
+  modelo        String
+  versao        String?  // Ex: "1.0 Turbo Flex AT"
+  ano           Int
+  anoModelo     Int?     // Ano do modelo (pode diferir do ano de fabricação)
+  
+  // Especificações técnicas
+  km            Int      // Quilometragem
+  cambio        String   // MANUAL | AUTOMATICO | CVT | AUTOMATIZADO
+  combustivel   String   // GASOLINA | ETANOL | FLEX | DIESEL | ELETRICO | HIBRIDO
+  categoria     String   // SEDAN | SUV | HATCH | PICKUP | COUPE | CONVERSIVEL | VAN | MINIVAN
+  cor           String?
+  portas        Int?     @default(4)
+  motor         String?  // Ex: "1.0", "2.0 Turbo"
+  potencia      String?  // Ex: "170cv"
+  finalPlaca    String?  // Último dígito da placa
+  
+  // Comercial & Balanço Financeiro
+  preco             Float
+  precoPromocional  Float?
+  precoCusto        Float?    // Custo de aquisição / preparação (Saída)
+  valorVenda        Float?    // Valor final fechado na venda (Entrada)
+  destaque          Boolean   @default(false) // Anúncio em destaque (pago)
+  vendido           Boolean   @default(false)
+  dataVenda         DateTime? // Data/hora em que a venda foi concluída
+
+  // Rastreabilidade de Vendedores (Quem adicionou / Quem vendeu)
+  cadastradoPorId   String?
+  cadastradoPorNome String?
+  vendidoPorId      String?
+  vendidoPorNome    String?
+
+  // Mídia
+  imagemPrincipal   String?
+  imagens           String?   // JSON array de URLs ou Data URLs
+
+  // Descrição
+  descricao         String?
+  opcionais         String?   // JSON array de opcionais
+
+  ativo             Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relacionamentos
+  lojaId            String
+  loja              Loja      @relation(fields: [lojaId], references: [id], onDelete: Cascade)
+  leads             Lead[]
+
+  @@index([marca])
+  @@index([preco])
+  @@index([ano])
+  @@index([km])
+  @@index([categoria])
+  @@index([cambio])
+  @@index([combustivel])
+  @@index([destaque])
+  @@index([ativo, vendido])
+  @@index([dataVenda])
+}
+
+// ─── Tabela de Leads ─────────────────────────────────────
+// Registro de interesse vinculado ao veículo e usuário
+model Lead {
+  id            String   @id @default(cuid())
+  
+  // Dados do lead
+  nome          String
+  email         String
+  telefone      String
+  mensagem      String?
+  origem        String   @default("SITE") // SITE | WHATSAPP | FORMULARIO
+  status        String   @default("NOVO") // NOVO | CONTATADO | NEGOCIANDO | CONVERTIDO | PERDIDO
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relacionamentos
+  veiculoId     String
+  veiculo       Veiculo  @relation(fields: [veiculoId], references: [id], onDelete: Cascade)
+  
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id])
+  
+  lojaId        String
+  loja          Loja     @relation(fields: [lojaId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([lojaId])
+  @@index([veiculoId])
+}
+
+// ─── Tabela de Serviços ──────────────────────────────────
+// Catálogo de revisões e manutenções (Pós-venda Nissan/Toyota)
+model Servico {
+  id            String   @id @default(cuid())
+  
+  nome          String
+  descricao     String
+  categoria     String   // REVISAO | MANUTENCAO | FUNILARIA | ACESSORIOS | SEGURO
+  preco         Float?   // Preço sugerido (null = sob consulta)
+  precoPromocional Float?
+  duracao       String?  // Tempo estimado: "2h", "1 dia"
+  
+  // Mídia
+  icone         String?  // Nome do ícone Lucide
+  imagemUrl     String?
+  
+  ativo         Boolean  @default(true)
+  destaque      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relacionamentos
+  lojaId        String
+  loja          Loja     @relation(fields: [lojaId], references: [id], onDelete: Cascade)
+  agendamentos  AgendamentoServico[]
+
+  @@index([categoria])
+  @@index([lojaId])
+}
+
+// ─── Tabela de Agendamentos de Serviços e Test Drives ────
+// Registro de agendamentos de serviços pós-venda, revisões e test drives
+model AgendamentoServico {
+  id                String   @id @default(cuid())
+  nome              String
+  email             String
+  telefone          String
+  dataPreferida     String
+  horarioPreferido  String
+  veiculoInfo       String?
+  observacoes       String?
+  status            String   @default("PENDENTE") // PENDENTE | CONFIRMADO | CONCLUIDO | CANCELADO
+  tipo              String   @default("SERVICO")  // SERVICO | TEST_DRIVE | REVISAO
+  createdAt         DateTime @default(now())
+
+  // Relacionamentos
+  servicoId         String?
+  servico           Servico? @relation(fields: [servicoId], references: [id], onDelete: SetNull)
+
+  lojaId            String
+  loja              Loja     @relation(fields: [lojaId], references: [id], onDelete: Cascade)
+
+  @@index([lojaId])
+  @@index([status])
+  @@index([servicoId])
+}
+
+// ─── Tabela de Transações de Pagamento (Pilar III) ───────
+// Rastreia assinaturas e destaques pagos com confirmação via webhook
+model TransacaoPagamento {
+  id                    String   @id @default(cuid())
+  tipo                  String   // ASSINATURA | DESTAQUE_VEICULO
+  valor                 Float
+  status                String   @default("PENDENTE") // PENDENTE | PAGO | FALHOU
+  stripePaymentIntentId String   @unique
+  plano                 String?
+  veiculoId             String?
+  lojaId                String
+  loja                  Loja     @relation(fields: [lojaId], references: [id], onDelete: Cascade)
+  webhookConfirmado     Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([lojaId])
+  @@index([status])
+  @@index([veiculoId])
+}

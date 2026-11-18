@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Toaster } from 'react-hot-toast';
 import WhatsAppButton from '@/components/WhatsAppButton';
+import GitHubPagesRuntime from '@/components/GitHubPagesRuntime';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -33,6 +34,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className="min-h-screen flex flex-col bg-canvas font-sans antialiased text-ink">
+        <GitHubPagesRuntime />
         {children}
         <WhatsAppButton />
         <Toaster

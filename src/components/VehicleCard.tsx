@@ -61,6 +61,9 @@ export default function VehicleCard({
   });
 
   const isList = viewMode === 'list';
+  const detalheHref = vehicle.id.startsWith('gh_')
+    ? `/veiculos/item?id=${vehicle.id}`
+    : `/veiculos/${vehicle.id}`;
 
   return (
     <article
@@ -70,7 +73,7 @@ export default function VehicleCard({
     >
       {/* Imagem Editorial do Veículo */}
       <Link
-        href={`/veiculos/${vehicle.id}`}
+        href={detalheHref}
         className={`relative block overflow-hidden bg-stone ${
           isList
             ? 'h-60 w-full shrink-0 border-b border-hairline md:h-auto md:w-80 md:border-b-0 md:border-r'
@@ -130,7 +133,7 @@ export default function VehicleCard({
         <div>
           <p className="eyebrow text-bronze-600">{vehicle.marca}</p>
           <Link
-            href={`/veiculos/${vehicle.id}`}
+            href={detalheHref}
             className="mt-1 block truncate font-serif text-2xl font-semibold leading-tight text-ink transition-colors hover:text-bronze-600"
           >
             {vehicle.modelo}
@@ -207,7 +210,7 @@ export default function VehicleCard({
 
             <div className="flex w-full items-center gap-2 pt-1 sm:w-auto sm:pt-0">
               <Link
-                href={`/veiculos/${vehicle.id}`}
+                href={detalheHref}
                 className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-editorial bg-obsidian px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-canvas transition-colors duration-300 ease-editorial hover:bg-bronze-500 sm:flex-initial"
               >
                 Detalhes

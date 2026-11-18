@@ -103,4 +103,13 @@
   .surface-card:hover {
     border-color: #b7b0a2;
   }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }

@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma';
 import { getAuthUser } from '@/lib/auth';
 import { leadSchema, checkRateLimit } from '@/lib/security';
 import { getClientIP } from '@/lib/utils';
+import { isStrapiConfigured, strapiCreateLead } from '@/lib/strapi';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,6 +71,18 @@ export async function POST(request: NextRequest) {
         userId: payload?.userId || null,
       },
     });
+
+    if (isStrapiConfigured()) {
+      await strapiCreateLead({
+        nome: dados.nome,
+        email: dados.email,
+        telefone: dados.telefone,
+        mensagem: dados.mensagem || null,
+        origem: dados.origem,
+        veiculoId: veiculo.id,
+        lojaId: veiculo.lojaId,
+      });
+    }
 
     return NextResponse.json(
       { success: true, data: { id: lead.id } },

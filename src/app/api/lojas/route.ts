@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUser } from '@/lib/auth';
 import { lojaSchema, lojaUpdateSchema } from '@/lib/security';
+import { isStrapiConfigured, strapiGetLojas } from '@/lib/strapi';
 
 export const dynamic = 'force-dynamic';
 
@@ -110,7 +111,18 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // ─── Listagem de todas as lojas ativas ────────────────
+    // ─── Listagem de todas as lojas ativas (Strapi -> Fallback Local) ────────────────
+    if (isStrapiConfigured()) {
+      const strapiLojas = await strapiGetLojas();
+      if (strapiLojas && strapiLojas.length > 0) {
+        return NextResponse.json({
+          success: true,
+          source: 'STRAPI_CMS',
+          data: strapiLojas,
+        });
+      }
+    }
+
     const lojas = await prisma.loja.findMany({
       where: { ativo: true },
       select: lojaPublicSelect,

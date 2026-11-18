@@ -194,3 +194,201 @@ export interface ContagensFiltros {
   kmRange: { min: number; max: number };
   total: number;
 }
+
+// ═══════════════════════════════════════════════════════════
+// Pilar 1: Contratos de Integração Strapi Headless CMS
+// ═══════════════════════════════════════════════════════════
+
+export interface StrapiEntity<T> {
+  id: number | string;
+  documentId?: string;
+  attributes?: T;
+  [key: string]: unknown;
+}
+
+export interface StrapiCollectionResponse<T> {
+  data: StrapiEntity<T>[];
+  meta?: {
+    pagination?: {
+      page: number;
+      pageSize: number;
+      pageCount: number;
+      total: number;
+    };
+  };
+}
+
+export interface StrapiSingleResponse<T> {
+  data: StrapiEntity<T> | null;
+  meta?: Record<string, unknown>;
+}
+
+export interface StrapiAuthResponse {
+  jwt: string;
+  user: {
+    id: number | string;
+    username: string;
+    email: string;
+    confirmed?: boolean;
+    blocked?: boolean;
+    role?: {
+      name: string;
+      type: string;
+    };
+  };
+}
+
+export interface StrapiConnectionStatus {
+  configured: boolean;
+  baseUrl: string;
+  online: boolean;
+  mode: 'STRAPI_REST_API' | 'LOCAL_FALLBACK';
+  lastCheckedAt: string;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Pilar 2: Camada de Integração Externa (ERP / DMS Sync)
+// ═══════════════════════════════════════════════════════════
+
+export type ERPSyncEventType =
+  | 'vehicle.upsert'
+  | 'vehicle.sold'
+  | 'vehicle.delete'
+  | 'catalog.batch_sync';
+
+export interface ERPVehicleItem {
+  externalErpId: string;
+  placa?: string;
+  chassi?: string;
+  marca: string;
+  modelo: string;
+  versao?: string;
+  ano: number;
+  anoModelo?: number;
+  km: number;
+  cambio: string;
+  combustivel: string;
+  categoria: string;
+  cor?: string;
+  portas?: number;
+  motor?: string;
+  potencia?: string;
+  finalPlaca?: string;
+  preco: number;
+  precoPromocional?: number | null;
+  precoCusto?: number | null;
+  destaque?: boolean;
+  vendido?: boolean;
+  imagemPrincipal?: string;
+  imagens?: string[];
+  descricao?: string;
+  opcionais?: string[];
+  vendedorResponsavel?: string;
+}
+
+export interface ERPWebhookPayload {
+  event: ERPSyncEventType;
+  sourceErp: string;
+  timestamp?: string;
+  lojaCnpj?: string;
+  data: ERPVehicleItem | ERPVehicleItem[];
+}
+
+export interface ERPSyncLogEntry {
+  id: string;
+  timestamp: string;
+  event: ERPSyncEventType;
+  sourceErp: string;
+  processedCount: number;
+  createdCount: number;
+  updatedCount: number;
+  soldCount: number;
+  syncedToStrapi: boolean;
+  status: 'SUCCESS' | 'PARTIAL' | 'ERROR';
+  summary: string;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Pilar 3: Estrutura para IA de Atendimento ao Cliente
+// ═══════════════════════════════════════════════════════════
+
+export type AIChatRole = 'user' | 'assistant' | 'system';
+
+export interface AIChatVehicleSuggestion {
+  id: string;
+  marca: string;
+  modelo: string;
+  versao?: string | null;
+  ano: number;
+  km: number;
+  cambio: string;
+  combustivel: string;
+  preco: number;
+  precoPromocional?: number | null;
+  imagemPrincipal?: string | null;
+  parcelaEstimada?: number;
+}
+
+export interface AIChatMessage {
+  id: string;
+  role: AIChatRole;
+  content: string;
+  createdAt: string;
+  suggestions?: AIChatVehicleSuggestion[];
+  whatsappHandoffUrl?: string;
+  quickReplies?: string[];
+}
+
+export interface AIChatRequest {
+  messages: { role: AIChatRole; content: string }[];
+  vehicleContext?: {
+    id?: string;
+    marca?: string;
+    modelo?: string;
+    preco?: number;
+  } | null;
+  sessionId?: string;
+}
+
+export interface AIChatResponse {
+  reply: string;
+  provider: 'STRAPI_AI_WEBHOOK' | 'OPENAI_COMPATIBLE' | 'LOCAL_CATALOG_ENGINE';
+  suggestions?: AIChatVehicleSuggestion[];
+  whatsappHandoffUrl?: string;
+  quickReplies?: string[];
+}
+
+// ═══════════════════════════════════════════════════════════
+// Pilar 4: Automação de Posts para Redes Sociais (Strapi)
+// ═══════════════════════════════════════════════════════════
+
+export type StrapiWebhookEvent =
+  | 'entry.create'
+  | 'entry.update'
+  | 'entry.publish'
+  | 'entry.unpublish';
+
+export interface StrapiWebhookPayload {
+  event: StrapiWebhookEvent;
+  createdAt?: string;
+  model: string;
+  uid?: string;
+  entry: Record<string, unknown>;
+}
+
+export interface SocialMediaPostPackage {
+  id: string;
+  veiculoId: string;
+  eventoOrigem: StrapiWebhookEvent;
+  tituloVeiculo: string;
+  precoFormatado: string;
+  instagramFeedCaption: string;
+  storiesReelsCaption: string;
+  whatsappStatusText: string;
+  hashtags: string[];
+  mediaUrls: string[];
+  linkAnuncio: string;
+  dispatchedToWebhook: boolean;
+  externalWebhookStatus?: string;
+  createdAt: string;
+}

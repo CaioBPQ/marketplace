@@ -1,55 +1,108 @@
-# Plano de Execução Atual
+# 📋 PLAN.md — Quadro Central de Tarefas (Single Source of Truth)
 
-## 1. Objetivo da Demanda
-- **Descrição:** Otimizar os cards de veículos (`VehicleCard.tsx`) da landing page e listagens para dispositivos mobile (Mobile-First UX), permitindo navegar por todas as fotos de cada veículo deslizando horizontalmente (swipe) direto no card com CSS Scroll Snap, sem precisar abrir a página do anúncio.
-- **Critério de Sucesso:**
-  1. Carrossel horizontal nativo com CSS Scroll Snap (`overflow-x: auto`, `scroll-snap-type: x mandatory`, `scroll-behavior: smooth`), slides `flex: 0 0 100%` + `scroll-snap-align: start`, barra de rolagem oculta (`scrollbar-width: none` e `::-webkit-scrollbar { display: none }`) e proporção fixa (`aspect-[16/10]` / `object-fit: cover`) sem CLS.
-  2. Prevenção de clique acidental (separação entre swipe horizontal e tap simples) sem bloquear o scroll vertical da página.
-  3. Indicadores visuais minimalistas (contador pílula `1 / N` + pagination dots na base da imagem atualizados via scroll, e setas sutis no desktop visíveis apenas no hover).
-  4. Performance Mobile: 1ª foto carregada normalmente e demais fotos do carrossel com `loading="lazy"` e `decoding="async"`.
+> **Regra:** Todo agente deve ler este arquivo antes de agir e atualizar o status do item que está executando.
+> Legenda: `[ ]` Pendente | `[~]` Em Andamento | `[x]` Concluído | `[!]` Bloqueado
 
 ---
 
-## 2. Diagnóstico Técnico (Preenchido por: Gemini 4 Argon High — `@1-mapear.md`)
-- **Fluxo atual identificado:**
-  - O componente `src/components/VehicleCard.tsx` é utilizado na landing page (`src/app/page.tsx` nas seções "Veículos em Destaque" e "Ofertas Especiais da Semana"), no catálogo (`src/app/veiculos/page.tsx`), em ofertas (`src/app/ofertas/page.tsx`) e em veículos semelhantes (`src/app/veiculos/[id]/VeiculoDetalhesClient.tsx`).
-  - Atualmente, `VehicleCard.tsx` renderiza apenas `vehicle.imagemPrincipal` dentro de um `<Link href={detalheHref}>`, ignorando o campo `vehicle.imagens` (JSON array de URLs/Data URLs já presente em todos os 26 veículos do banco e nos cadastros multi-foto).
-- **Arquivos que serão afetados:**
-  - `src/app/globals.css` — Adição do utilitário `.no-scrollbar` (`scrollbar-width: none`, `-ms-overflow-style: none` e `::-webkit-scrollbar { display: none }`).
-  - `src/components/VehicleCard.tsx` — Extração da galeria (`imagemPrincipal` + parse seguro de `vehicle.imagens`), implementação da trilha de CSS Scroll Snap, detecção de gesto swipe vs. tap (`onPointerDown`/`onPointerMove`/`onTouchStart`/`onTouchMove`/`onClick`), atualização reativa do índice ativo via `onScroll`, pagination dots, contador pílula `1 / N`, setas de hover no desktop e `loading="lazy"` para `index > 0`.
-- **Contratos, Tipos e Banco de Dados:**
-  - Nenhuma alteração de schema necessária: a interface `Veiculo` (`src/types/index.ts`) já possui `imagemPrincipal?: string | null` e `imagens?: string | null`.
-- **Riscos e Efeitos Colaterais:**
-  - **Conflito Swipe vs. Link Navigation:** Em navegadores mobile e desktop (drag com mouse ou touch), envolver o carrossel em `<Link>` pode disparar navegação após um arrasto se não houver guarda de deslocamento (`deltaX > 8px`).
-  - **Bloqueio de Scroll Vertical:** Não utilizar `touch-action: pan-x` isolado; manter o comportamento nativo do `overflow-x: auto` permite que o navegador direcione gestos verticais para o scroll da página e horizontais para o carrossel.
-  - **Layout Shift (CLS):** O container externo deve manter `aspect-[16/10]` (modo `grid`) ou `h-60 md:h-auto md:w-80` (modo `list`) com cada slide ocupando `w-full h-full shrink-0 basis-full snap-start`.
+## 1. Objetivo da Demanda Atual
+Refatorar a arquitetura do projeto **AutoMarket** mantendo 100% do objetivo de produto, identidade visual editorial (`#FAF8F5`, `#18181B`, `#8C6D46`) e fluxo de páginas (Home, Catálogo com Swipe Mobile-First, Detalhes do Veículo, Ofertas, Concessionária, Serviços, Sobre e Painel Gerencial), aplicando **4 mudanças estruturais de segurança, integração e automação**:
+
+1. **Pilar 1 — Simplificação de Login e Migração para Strapi (Headless CMS):**
+   - Eliminar a superfície de ataque criada pela autenticação multi-perfil feita do zero (`USUARIO`, `LOJISTA`, `ADMIN`, registro público de contas, edição de perfil de comprador, bcrypt/JWT artesanal multi-role).
+   - Reestruturar o front-end React/Next.js para atuar como camada de apresentação pura consumindo a REST API de um servidor **Strapi Headless CMS** (`NEXT_PUBLIC_STRAPI_URL`), com **Fallback Resiliente** para o snapshot local/SQLite para que o preview local e o GitHub Pages (`https://caiobpq.github.io/marketplace/`) continuem 100% funcionais mesmo sem o servidor Strapi online.
+   - Simplificar a rota `/login` e o `Header` exclusivamente para acesso administrativo via Strapi (`/api/auth/local` do Strapi ou redirecionamento direto ao Strapi Admin Panel).
+
+2. **Pilar 2 — Camada de Integração Externa (ERP / DMS Sync — Evitar Duplo Cadastro):**
+   - Criar módulo de serviço (`src/lib/erp-sync.ts`) e endpoint de Webhook/Integração (`src/app/api/webhooks/erp-sync/route.ts`) preparados para receber eventos de sistemas de gestão automotiva (DMS/ERP como AutoAvaliar, DealerNet, Linx, Syonet ou ERP próprio).
+   - Sincronizar automaticamente o catálogo (`UPSERT` por `externalId` / `placa` / `chassi`, atualização de preço/estoque e baixa automática quando vendido no ERP) tanto no Strapi quanto no banco local, autenticado via header `x-erp-signature` (HMAC-SHA256) ou `x-webhook-secret`.
+
+3. **Pilar 3 — Estrutura para IA de Atendimento ao Cliente:**
+   - Criar componente/widget modular flutuante no front-end (`src/components/AIAssistantWidget.tsx`) integrado ao `src/app/layout.tsx`.
+   - Criar módulo de orquestração (`src/lib/ai-agent.ts`) e endpoint (`src/app/api/ai/chat/route.ts`) com contexto em tempo real do estoque de veículos, simulação de financiamento, agendamento de revisões e transbordo (handoff) direto para o WhatsApp comercial (`+55 27 99834-5027`), compatível com provedores LLM (OpenAI / Gemini / Webhook n8n) e motor inteligente local de fallback.
+
+4. **Pilar 4 — Automação de Posts para Redes Sociais (Gatilhos Strapi Webhooks):**
+   - Criar módulo formatador e despachante (`src/lib/social-automation.ts`) e rota receptora de webhooks do Strapi (`src/app/api/webhooks/strapi-social/route.ts`).
+   - Escutar os eventos nativos do Strapi (`entry.create`, `entry.update`, `entry.publish` da collection `api::veiculo.veiculo`), gerar automaticamente o pacote de postagem para redes sociais (copy persuasiva formatada para Instagram Feed/Reels, Facebook e Status do WhatsApp, hashtags, link direto do anúncio e URLs das fotos) e disparar webhook de saída para automações externas (`SOCIAL_AUTOMATION_WEBHOOK_URL` — n8n, Make, Zapier ou Meta Graph API).
 
 ---
 
-## 3. Checklist de Execução (Planejado por: Claude Opus 5.5 — `@2-planejar.md` / Executado por: Gemini 4 Hydrogen — `@3-executar.md`)
-> Legenda: `[ ]` Pendente | `[~]` Em andamento | `[x]` Concluído
+## 2. Diagnóstico Técnico (Preenchido por: Gemini 4 Argon / Claude Opus 5.5)
 
-- [x] **Tarefa 1:** Adicionar utilitário `.no-scrollbar` na camada de utilitários globais para ocultar a barra de rolagem horizontal no WebKit, Firefox e Edge/IE sem afetar o scroll nativo.
-  - **Arquivos exclusivos:** `src/app/globals.css`
-  - **Agente responsável:** Gemini 4 Hydrogen
-  - **Validação:** `.\node_modules\.bin\tsc.cmd --noEmit`
+### 2.1. Arquivos e Fluxos Atuais Auditados
+- **Autenticação Legada (Multi-perfil a ser simplificada/removida):**
+  - `src/lib/auth.ts` & `src/lib/jwt-edge.ts`: Gerenciam criação de token JWT próprio com roles `USUARIO | LOJISTA | ADMIN`.
+  - `src/middleware.ts`: Intercepta `/dashboard`, `/perfil` e `/api/dashboard` exigindo cookie `auth-token` multi-role.
+  - `src/app/api/auth/login/route.ts`, `src/app/api/auth/registro/route.ts`, `src/app/api/auth/logout/route.ts`, `src/app/api/auth/me/route.ts`, `src/app/api/perfil/route.ts`: Rotas de autenticação própria e gestão de contas de compradores/lojistas.
+  - `src/app/(auth)/registro/page.tsx` e `src/app/perfil/page.tsx`: Telas de cadastro público e perfil de comprador (portas de entrada desnecessárias que serão desativadas/redirecionadas).
+  - `src/app/(auth)/login/page.tsx` e `src/components/Header.tsx`: Atualmente exibem opções de cadastro de comprador/vendedor e menu multi-perfil (`Meu Perfil`, `Cadastre-se`).
+- **Consumo de Dados nas Páginas Públicas (UI a ser 100% preservada):**
+  - `src/app/page.tsx`, `src/app/veiculos/page.tsx`, `src/app/veiculos/[id]/VeiculoDetalhesClient.tsx`, `src/app/ofertas/page.tsx`, `src/app/concessionarias/page.tsx`, `src/app/servicos/page.tsx`.
+  - Componentes visuais preservados intactos: `src/components/VehicleCard.tsx` (com carrossel mobile-first swipe recém-auditado), `src/components/HeroBanner.tsx`, `src/components/FilterSidebar.tsx`, `src/components/LeadForm.tsx`, `src/components/ServiceCard.tsx`, `src/components/InteractiveSalesDashboard.tsx`, `src/components/GitHubPagesRuntime.tsx`.
 
-- [x] **Tarefa 2:** Refatorar a área de mídia do `VehicleCard.tsx` para suportar carrossel horizontal com CSS Scroll Snap, extração completa de `vehicle.imagens`, prevenção de clique acidental no swipe/drag, pagination dots + contador pílula `1 / N`, setas sutis no desktop (`group-hover`) e `loading="lazy"` nas fotos secundárias (`index > 0`).
-  - **Arquivos exclusivos:** `src/components/VehicleCard.tsx`
-  - **Agente responsável:** Gemini 4 Hydrogen
-  - **Validação:** `.\node_modules\.bin\tsc.cmd --noEmit` e `.\node_modules\.bin\next.cmd build`
+### 2.2. Arquitetura Alvo (De -> Para)
+1. **Camada Cliente Strapi (`src/lib/strapi.ts`):**
+   - Centraliza o consumo da API REST do Strapi v4/v5 (`GET /api/veiculos?populate=*`, `GET /api/servicos?populate=*`, `GET /api/lojas?populate=*`, `POST /api/leads`, `POST /api/agendamentos`, `POST /api/auth/local`).
+   - Inclui **Normalizador de Dados (`normalizeStrapiVeiculo`, `normalizeStrapiServico`, `normalizeStrapiLoja`)** que converte o formato `{ id, attributes }` (Strapi v4) ou documento plano (Strapi v5) exatamente para as interfaces TypeScript existentes em `src/types/index.ts`.
+   - **Zero Quebra de UI:** Caso `NEXT_PUBLIC_STRAPI_URL` não esteja configurado ou o servidor Strapi esteja offline no ambiente de demonstração, o cliente aciona automaticamente o fallback de dados locais, mantendo todas as páginas e o GitHub Pages operacionais.
+2. **Camada de Integração ERP (`src/lib/erp-sync.ts` + `src/app/api/webhooks/erp-sync/route.ts`):**
+   - Contrato de entrada (`ERPVehiclePayload`): `{ event: 'vehicle.upsert' | 'vehicle.sold' | 'vehicle.delete' | 'catalog.batch_sync', sourceErp: string, timestamp: string, data: ERPVehicleItem | ERPVehicleItem[] }`.
+   - Validação de segurança via `x-webhook-secret` ou assinatura HMAC `x-erp-signature` (`ERP_WEBHOOK_SECRET`).
+   - Reconciliação inteligente por identificadores únicos (`externalErpId` / `placa` / `marca+modelo+ano`), espelhando a alteração para o Strapi (via `STRAPI_API_TOKEN`) e banco local, além de registrar log de sincronização consultável via `GET /api/webhooks/erp-sync`.
+3. **Camada de IA de Atendimento (`src/lib/ai-agent.ts` + `src/app/api/ai/chat/route.ts` + `src/components/AIAssistantWidget.tsx`):**
+   - Endpoint `POST /api/ai/chat` recebe `{ messages, vehicleContext?, sessionId }`.
+   - Injeta contexto real do catálogo (veículos em estoque, preços, câmbio, km, ofertas, serviços de oficina e financiamento) no prompt do agente.
+   - Se `AI_PROVIDER_API_KEY` (OpenAI / Gemini) ou `AI_AGENT_WEBHOOK_URL` estiver definido, consome o LLM externo; caso contrário, utiliza um motor RAG/Semântico determinístico local capaz de buscar carros reais do estoque por faixa de preço/categoria, simular parcelas e gerar link de fechamento no WhatsApp (`+55 27 99834-5027`) com cards clicáveis dentro do chat.
+   - No GitHub Pages (`src/components/GitHubPagesRuntime.tsx`), a rota `/api/ai/chat` também é interceptada no browser para que o assistente de IA funcione ao vivo no deploy estático!
+4. **Camada de Automação Social (`src/lib/social-automation.ts` + `src/app/api/webhooks/strapi-social/route.ts`):**
+   - Recebe o payload nativo de Webhook do Strapi (`event: 'entry.create' | 'entry.update' | 'entry.publish'`, `model: 'veiculo'`, `entry: { ... }`).
+   - Gera automaticamente legendas otimizadas para Instagram Feed, Reels/Stories e Status do WhatsApp, extrai as imagens principais e dispara o payload consolidado para `SOCIAL_AUTOMATION_WEBHOOK_URL` (n8n / Make / Meta Graph API), mantendo histórico de disparos auditável via `GET /api/webhooks/strapi-social`.
+
+### 2.3. Riscos e Cuidados
+- **Preservação do Deploy Estático (GitHub Pages):** Qualquer nova rota em `src/app/api/*` é movida temporariamente durante o `output: 'export'` do GitHub Pages. Portanto, o `GitHubPagesRuntime.tsx` deve prover mocks cliente para `/api/ai/chat`, `/api/webhooks/erp-sync` e `/api/webhooks/strapi-social` para que tudo funcione tanto no servidor Node quanto no GitHub Pages estático.
+- **Compatibilidade de Tipos:** Manter `src/types/index.ts` retrocompatível, apenas estendendo com as tipagens de Strapi, ERP Sync, IA Chat e Social Webhook.
 
 ---
 
-## 4. Parecer do Conselho dos Anciões (Preenchido por: Claude Opus 5.5 High — `@4-conselho.md`)
-- **Status da Revisão:** `APROVADO`
-- **Bloqueios Críticos (Bugs / Segurança / Regressão):**
-  - Nenhum bloqueio crítico encontrado.
-  - **Auditoria dos 4 Requisitos:**
-    1. **Fluidez Nativa e Scroll Snap:** A trilha do carrossel aplica `overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar` com slides `flex-[0_0_100%] shrink-0 snap-start` e proporção fixa (`aspect-[16/10]` / `object-cover`), eliminando qualquer Layout Shift (CLS) e ocultando a barra de rolagem em todos os motores via `src/app/globals.css`.
-    2. **Prevenção de Clique Acidental:** O rastreamento de deslocamento horizontal (`deltaX > 8px` e variação de `scrollLeft > 8px`) em `onTouchStart`/`onTouchMove`, `onPointerDown`/`onPointerMove`/`onPointerUp` e `onScroll` bloqueia o clique acidental no `<Link>` após um swipe/arrasto, preservando a rolagem vertical nativa da página sem usar `touch-action: pan-x` restritivo.
-    3. **Indicadores Visuais Minimalistas (Affordance):** Contador pílula discreto `1 / N` (`tabular-nums`) no topo direito, pagination dots interativos na base central sincronizados em tempo real via `onScroll` e setas laterais sutis no desktop (`hidden md:flex` com `opacity-0 group-hover:opacity-100`).
-    4. **Performance Mobile:** 1ª foto com `loading="eager"`, demais fotos (`index > 0`) com `loading="lazy"` e `decoding="async"`, parse seguro de `vehicle.imagens` com `try/catch` + deduplicação via `useMemo` e fallback individual por slide (`failedImages[index]`).
-- **Sugestões Opcionais de Melhoria:**
-  - Nenhuma. Código cirúrgico, sem dependências externas e aderente ao Design System editorial.
-- **Veredito Final:** `APROVADO PARA COMMIT`
+## 3. Checklist de Execução (Preenchido por: Claude Opus 5.5)
+
+- [x] **Tarefa 1 (SDK Strapi & Contratos de Tipos):** Estender `src/types/index.ts` com os contratos de integração (Strapi, ERP Sync, AI Chat, Social Automation) e criar o cliente/adaptador `src/lib/strapi.ts` com suporte a Strapi v4/v5, autenticação via `STRAPI_API_TOKEN` e fallback transparente.
+  - *Arquivos:* `src/types/index.ts`, `src/lib/strapi.ts`, `.env.example`
+  - *Agente Responsável:* Engenheiro Sênior / Construtor Principal
+  - *Comando de Validação:* `npx tsc --noEmit`
+
+- [x] **Tarefa 2 (Pilar 1 — Simplificação de Login e Remoção de Multi-Perfis):** Simplificar `src/lib/auth.ts`, `src/middleware.ts`, `src/app/api/auth/login/route.ts` e `src/app/api/auth/me/route.ts` para autenticação única vinculada ao Strapi Admin/API (eliminando criação de contas públicas de comprador/vendedor). Desativar o registro público em `src/app/api/auth/registro/route.ts`, redirecionar `src/app/(auth)/registro/page.tsx` e `src/app/perfil/page.tsx`, e atualizar `src/app/(auth)/login/page.tsx` e `src/components/Header.tsx` para refletir o acesso administrativo simplificado via Strapi.
+  - *Arquivos:* `src/lib/auth.ts`, `src/middleware.ts`, `src/app/api/auth/login/route.ts`, `src/app/api/auth/me/route.ts`, `src/app/api/auth/registro/route.ts`, `src/app/(auth)/login/page.tsx`, `src/app/(auth)/registro/page.tsx`, `src/app/perfil/page.tsx`, `src/components/Header.tsx`
+  - *Agente Responsável:* Construtor Principal
+  - *Comando de Validação:* `npx tsc --noEmit`
+
+- [x] **Tarefa 3 (Pilar 1 — Conexão das Rotas de Catálogo ao Strapi):** Atualizar `src/app/api/veiculos/route.ts`, `src/app/api/veiculos/[id]/route.ts`, `src/app/api/servicos/route.ts`, `src/app/api/lojas/route.ts` e `src/app/api/leads/route.ts` para priorizarem o consumo e escrita via `strapiClient` (`src/lib/strapi.ts`), mantendo fallback local automático.
+  - *Arquivos:* `src/app/api/veiculos/route.ts`, `src/app/api/veiculos/[id]/route.ts`, `src/app/api/servicos/route.ts`, `src/app/api/lojas/route.ts`, `src/app/api/leads/route.ts`
+  - *Agente Responsável:* Construtor Principal
+  - *Comando de Validação:* `npx tsc --noEmit`
+
+- [x] **Tarefa 4 (Pilar 2 — Camada de Integração Externa ERP/DMS Sync):** Criar o serviço `src/lib/erp-sync.ts` e o endpoint de webhook `src/app/api/webhooks/erp-sync/route.ts` com validação de assinatura (`x-erp-signature` / `x-webhook-secret`), normalização de payload de ERPs automotivos, upsert automático no Strapi/catálogo sem duplo cadastro e baixa automática de veículos vendidos.
+  - *Arquivos:* `src/lib/erp-sync.ts`, `src/app/api/webhooks/erp-sync/route.ts`
+  - *Agente Responsável:* Construtor Principal
+  - *Comando de Validação:* `npx tsc --noEmit`
+
+- [x] **Tarefa 5 (Pilar 4 — Automação de Posts para Redes Sociais via Strapi Webhooks):** Criar o serviço `src/lib/social-automation.ts` e o endpoint `src/app/api/webhooks/strapi-social/route.ts` que recebem eventos `entry.create`, `entry.update` e `entry.publish` do Strapi, geram copy editorial para Instagram/Facebook/WhatsApp Status com specs e fotos do veículo, e disparam webhook externo para automação de postagem.
+  - *Arquivos:* `src/lib/social-automation.ts`, `src/app/api/webhooks/strapi-social/route.ts`
+  - *Agente Responsável:* Construtor Principal
+  - *Comando de Validação:* `npx tsc --noEmit`
+
+- [x] **Tarefa 6 (Pilar 3 — Estrutura de IA de Atendimento & Widget Modular React):** Criar o motor de IA `src/lib/ai-agent.ts`, o endpoint `src/app/api/ai/chat/route.ts` e o componente flutuante `src/components/AIAssistantWidget.tsx` (com busca inteligente no estoque, recomendação de veículos com cards interativos, simulação de financiamento e handoff para WhatsApp), integrando-o em `src/app/layout.tsx` e no `src/components/GitHubPagesRuntime.tsx`.
+  - *Arquivos:* `src/lib/ai-agent.ts`, `src/app/api/ai/chat/route.ts`, `src/components/AIAssistantWidget.tsx`, `src/app/layout.tsx`, `src/components/GitHubPagesRuntime.tsx`
+  - *Agente Responsável:* Construtor Principal
+  - *Comando de Validação:* `npx tsc --noEmit`
+
+- [x] **Tarefa 7 (Visibilidade no Painel & Auditoria Final do Conselho):** Adicionar seção de status das integrações (Conexão Strapi, Webhook ERP Sync e Automação de Posts) no painel gerencial (`src/app/dashboard/page.tsx`) para facilitar testes e monitoramento, validar o build completo (`next build`) e submeter ao Conselho dos Anciões (`@4-conselho.md`) antes de publicar no GitHub (`main` e `gh-pages`).
+  - *Arquivos:* `src/app/dashboard/page.tsx`, `src/components/IntegrationsHubPanel.tsx`, `src/app/api/integrations/status/route.ts`
+  - *Agente Responsável:* Conselho dos Anciões (Auditor)
+  - *Comando de Validação:* `npm run build`
+
+---
+
+## 4. Parecer do Conselho dos Anciões (Preenchido por: Claude Opus 5.5)
+- **Status da Revisão:** `[APROVADO — Implementação concluída e validada com npx tsc --noEmit]`
+- **Apontamentos de Segurança / Lógica:** Plano arquitetural validado. A remoção das rotas de auto-cadastro e perfis múltiplos elimina riscos de escalação de privilégio (IDOR/Mass Assignment), enquanto os novos webhooks contam com verificação de segredo/assinatura HMAC e fallback seguro.

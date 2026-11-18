@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// Middleware Next.js (Edge Runtime) - Rate Limiting, Segurança e Auth
+// Middleware Next.js (Edge Runtime) - Rate Limiting, Segurança e Auth Strapi
 // ═══════════════════════════════════════════════════════════
 
 import { NextResponse, NextRequest } from 'next/server';
@@ -21,6 +21,14 @@ export async function middleware(request: NextRequest) {
     );
   }
 
+  // ─── Redireciona rotas legadas de multi-perfil (/registro e /perfil) ───
+  if (pathname.startsWith('/registro')) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+  if (pathname.startsWith('/perfil')) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
   // ─── Headers de segurança ───────────────────────────────
   const requestId = crypto.randomUUID();
   const response = NextResponse.next();
@@ -31,8 +39,8 @@ export async function middleware(request: NextRequest) {
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('X-XSS-Protection', '1; mode=block');
 
-  // ─── Proteção de rotas autenticadas (/dashboard e /perfil)
-  if (pathname.startsWith('/dashboard') || pathname.startsWith('/perfil')) {
+  // ─── Proteção de rotas administrativas (/dashboard) ─────
+  if (pathname.startsWith('/dashboard')) {
     const token = request.cookies.get('automarket-token')?.value;
 
     if (!token) {
@@ -42,13 +50,12 @@ export async function middleware(request: NextRequest) {
     }
 
     const payload = await verifyTokenEdge(token);
-    if (!payload) {
+    if (!payload || payload.role === 'USUARIO') {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirect', pathname);
       return NextResponse.redirect(loginUrl);
     }
 
-    // Adiciona dados do usuário nos headers da resposta
     response.headers.set('X-User-Id', payload.userId);
     response.headers.set('X-User-Role', payload.role);
   }
@@ -62,15 +69,15 @@ export async function middleware(request: NextRequest) {
 
     if (!token) {
       return NextResponse.json(
-        { success: false, error: 'Não autorizado. Token não fornecido.' },
+        { success: false, error: 'Não autorizado. Token administrativo não fornecido.' },
         { status: 401 }
       );
     }
 
     const payload = await verifyTokenEdge(token);
-    if (!payload) {
+    if (!payload || payload.role === 'USUARIO') {
       return NextResponse.json(
-        { success: false, error: 'Não autorizado. Token inválido ou expirado.' },
+        { success: false, error: 'Não autorizado. Acesso exclusivo a gestores via Strapi.' },
         { status: 401 }
       );
     }
@@ -79,7 +86,6 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
-// ─── Configuração de rotas que o middleware intercepta ────
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };

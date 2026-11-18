@@ -6,11 +6,9 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   Car,
   LayoutDashboard,
-  LogIn,
   LogOut,
   Menu,
-  User as UserIcon,
-  UserPlus,
+  ShieldCheck,
   X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -104,13 +102,11 @@ export default function Header() {
       setUser(null);
       setMobileOpen(false);
       setLoggingOut(false);
-      toast.success('Sessão encerrada com sucesso.');
+      toast.success('Sessão administrativa encerrada.');
       router.push('/');
       router.refresh();
     }
   };
-
-  const displayName = user?.nome ? user.nome.split(' ')[0] : 'Minha Conta';
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-hairline bg-canvas/92 backdrop-blur-xl transition-colors duration-300 ease-editorial">
@@ -162,43 +158,19 @@ export default function Header() {
           })}
         </nav>
 
-        {/* Ações de Autenticação Desktop */}
+        {/* Ação Administrativa Simplificada (Strapi CMS Bridge) */}
         <div className="hidden shrink-0 items-center gap-2.5 lg:flex">
           {!mounted ? (
-            <div className="h-9 w-44 animate-pulse rounded-editorial bg-stone" />
+            <div className="h-9 w-36 animate-pulse rounded-editorial bg-stone" />
           ) : hasToken ? (
             <>
               <Link
-                href="/perfil"
-                title="Gerenciar Meu Perfil"
-                className={`inline-flex items-center gap-2 rounded-editorial border px-3 py-1.5 text-xs font-semibold transition-colors duration-300 ${
-                  isActive('/perfil')
-                    ? 'border-ink bg-stone text-ink'
-                    : 'border-hairline bg-surface text-ink hover:border-ink'
-                }`}
+                href="/dashboard"
+                className="inline-flex items-center gap-1.5 rounded-editorial bg-obsidian px-3.5 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-canvas transition-colors duration-300 hover:bg-bronze-500"
               >
-                {user?.avatarUrl ? (
-                  <img
-                    src={user.avatarUrl}
-                    alt={displayName}
-                    className="h-6 w-6 rounded-full object-cover border border-hairline"
-                  />
-                ) : (
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-obsidian text-[11px] font-semibold text-canvas">
-                    {user?.nome ? user.nome.charAt(0).toUpperCase() : <UserIcon className="h-3.5 w-3.5" />}
-                  </span>
-                )}
-                <span className="max-w-[110px] truncate">{displayName}</span>
+                <LayoutDashboard className="h-3.5 w-3.5 text-bronze-300" />
+                Painel Strapi
               </Link>
-              {(user?.role === 'LOJISTA' || user?.role === 'ADMIN') && (
-                <Link
-                  href="/dashboard"
-                  className="inline-flex items-center gap-1.5 rounded-editorial bg-obsidian px-3.5 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-canvas transition-colors duration-300 hover:bg-bronze-500"
-                >
-                  <LayoutDashboard className="h-3.5 w-3.5 text-bronze-300" />
-                  {user?.role === 'ADMIN' ? 'Painel Admin' : 'Painel'}
-                </Link>
-              )}
               <button
                 type="button"
                 onClick={handleLogout}
@@ -210,22 +182,14 @@ export default function Header() {
               </button>
             </>
           ) : (
-            <>
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-1.5 rounded-editorial border border-hairline bg-surface px-3.5 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-ink transition-colors duration-300 hover:border-ink"
-              >
-                <LogIn className="h-3.5 w-3.5 text-bronze-500" />
-                Entrar
-              </Link>
-              <Link
-                href="/registro"
-                className="inline-flex items-center gap-1.5 rounded-editorial bg-obsidian px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-canvas transition-colors duration-300 hover:bg-bronze-500"
-              >
-                <UserPlus className="h-3.5 w-3.5" />
-                Cadastre-se
-              </Link>
-            </>
+            <Link
+              href="/login"
+              title="Acesso Administrativo via Strapi CMS"
+              className="inline-flex items-center gap-1.5 rounded-editorial border border-hairline bg-surface px-3.5 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-secondary transition-colors duration-300 hover:border-ink hover:text-ink"
+            >
+              <ShieldCheck className="h-3.5 w-3.5 text-bronze-500" />
+              Gestão Strapi
+            </Link>
           )}
         </div>
 
@@ -264,35 +228,16 @@ export default function Header() {
           <div className="mt-4 border-t border-hairline pt-4">
             {hasToken ? (
               <div className="flex flex-col gap-2.5">
+                <div className="flex items-center justify-between rounded-editorial border border-hairline bg-canvas px-3.5 py-2 text-xs text-ink-secondary">
+                  <span>Gestor autenticado: <strong className="text-ink">{user?.nome || 'Admin Strapi'}</strong></span>
+                </div>
                 <Link
-                  href="/perfil"
-                  className="flex items-center justify-between gap-2 rounded-editorial border border-hairline bg-canvas px-3.5 py-2.5 text-sm font-medium text-ink"
+                  href="/dashboard"
+                  className="flex w-full items-center justify-center gap-2 rounded-editorial bg-obsidian px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-canvas transition-colors hover:bg-bronze-500"
                 >
-                  <span className="flex items-center gap-2.5 min-w-0">
-                    {user?.avatarUrl ? (
-                      <img
-                        src={user.avatarUrl}
-                        alt={user?.nome || 'Usuário'}
-                        className="h-7 w-7 rounded-full object-cover border border-hairline"
-                      />
-                    ) : (
-                      <UserIcon className="h-4 w-4 text-bronze-500" />
-                    )}
-                    <span className="truncate">Olá, {user?.nome || 'Usuário'}</span>
-                  </span>
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-bronze-600">
-                    Meu Perfil
-                  </span>
+                  <LayoutDashboard className="h-4 w-4 text-bronze-300" />
+                  Acessar Painel Strapi
                 </Link>
-                {(user?.role === 'LOJISTA' || user?.role === 'ADMIN') && (
-                  <Link
-                    href="/dashboard"
-                    className="flex w-full items-center justify-center gap-2 rounded-editorial bg-obsidian px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-canvas transition-colors hover:bg-bronze-500"
-                  >
-                    <LayoutDashboard className="h-4 w-4 text-bronze-300" />
-                    {user?.role === 'ADMIN' ? 'Acessar Painel Admin' : 'Acessar Painel da Loja'}
-                  </Link>
-                )}
                 <button
                   type="button"
                   onClick={handleLogout}
@@ -300,26 +245,17 @@ export default function Header() {
                   className="flex w-full items-center justify-center gap-2 rounded-editorial border border-danger-500/30 bg-danger-50 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-danger-700 transition-colors hover:bg-danger-500 hover:text-white disabled:opacity-60"
                 >
                   <LogOut className="h-4 w-4" />
-                  Sair da Conta
+                  Encerrar Sessão
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2.5">
-                <Link
-                  href="/login"
-                  className="flex items-center justify-center gap-1.5 rounded-editorial border border-hairline bg-canvas px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-ink"
-                >
-                  <LogIn className="h-3.5 w-3.5 text-bronze-500" />
-                  Entrar
-                </Link>
-                <Link
-                  href="/registro"
-                  className="flex items-center justify-center gap-1.5 rounded-editorial bg-obsidian px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-canvas"
-                >
-                  <UserPlus className="h-3.5 w-3.5" />
-                  Cadastre-se
-                </Link>
-              </div>
+              <Link
+                href="/login"
+                className="flex w-full items-center justify-center gap-2 rounded-editorial border border-hairline bg-canvas px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-ink"
+              >
+                <ShieldCheck className="h-4 w-4 text-bronze-500" />
+                Acesso Administrativo (Strapi)
+              </Link>
             )}
           </div>
         </div>

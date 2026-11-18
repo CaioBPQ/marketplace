@@ -2,6 +2,8 @@
 
 import { useEffect } from 'react';
 import initialSnapshot from '@/lib/initial-db-snapshot.json';
+import { runLocalCatalogAIEngine } from '@/lib/ai-agent';
+import { buildSocialMediaPostPackage } from '@/lib/social-automation';
 
 const DB_STORAGE_KEY = 'automarket-ghpages-db-v3';
 
@@ -810,6 +812,126 @@ export default function GitHubPagesRuntime() {
           }
         }
         return jsonResponse({ success: true, data: { status: 'PAGO' } });
+      }
+
+      // ─── 13. /api/ai/chat (Concierge IA no GitHub Pages) ──
+      if (apiPath === '/api/ai/chat') {
+        if (method === 'GET') {
+          return jsonResponse({
+            success: true,
+            data: {
+              active: true,
+              provider: 'LOCAL_CATALOG_ENGINE',
+              whatsappHandoff: '+55 27 99834-5027',
+            },
+          });
+        }
+        if (method === 'POST') {
+          const aiResponse = runLocalCatalogAIEngine(body as any, db.veiculos as any);
+          return jsonResponse({ success: true, data: aiResponse });
+        }
+      }
+
+      // ─── 14. /api/webhooks/erp-sync (Simulação no GitHub Pages) ─
+      if (apiPath === '/api/webhooks/erp-sync') {
+        if (method === 'GET') {
+          return jsonResponse({
+            success: true,
+            data: { endpoint: '/api/webhooks/erp-sync', history: [] },
+          });
+        }
+        if (method === 'POST') {
+          const items = Array.isArray(body.data) ? body.data : [body.data];
+          let created = 0;
+          for (const item of items) {
+            if (!item?.marca || !item?.modelo) continue;
+            const novo = {
+              id: `gh_erp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              marca: item.marca,
+              modelo: item.modelo,
+              versao: item.versao || null,
+              ano: Number(item.ano || 2025),
+              anoModelo: Number(item.anoModelo || item.ano || 2025),
+              km: Number(item.km || 0),
+              cambio: item.cambio || 'AUTOMATICO',
+              combustivel: item.combustivel || 'FLEX',
+              categoria: item.categoria || 'SUV',
+              cor: item.cor || 'Prata',
+              preco: Number(item.preco || 150000),
+              precoCusto: Math.round(Number(item.preco || 150000) * 0.82),
+              destaque: Boolean(item.destaque),
+              vendido: false,
+              ativo: true,
+              imagemPrincipal:
+                item.imagemPrincipal ||
+                db.veiculos[0]?.imagemPrincipal ||
+                null,
+              imagens: JSON.stringify([
+                item.imagemPrincipal || db.veiculos[0]?.imagemPrincipal || '',
+              ]),
+              lojaId: db.lojas[0]?.id,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+            db.veiculos.unshift(novo);
+            created += 1;
+          }
+          saveLocalDB(db);
+          return jsonResponse({
+            success: true,
+            message: `Sincronização ${body.sourceErp || 'ERP'}: ${created} veículo(s) sincronizado(s) sem duplo cadastro.`,
+            data: { createdCount: created },
+          });
+        }
+      }
+
+      // ─── 15. /api/webhooks/strapi-social (Simulação no GitHub Pages) ─
+      if (apiPath === '/api/webhooks/strapi-social') {
+        if (method === 'GET') {
+          return jsonResponse({
+            success: true,
+            data: { endpoint: '/api/webhooks/strapi-social', history: [] },
+          });
+        }
+        if (method === 'POST') {
+          const v =
+            (body.veiculoId && db.veiculos.find((item) => item.id === body.veiculoId)) ||
+            db.veiculos.find((item) => item.ativo && !item.vendido) ||
+            db.veiculos[0];
+          const pkg = buildSocialMediaPostPackage(v as any, (body.event as any) || 'entry.create');
+          return jsonResponse({ success: true, data: pkg }, 201);
+        }
+      }
+
+      // ─── 16. /api/integrations/status (GitHub Pages) ─────
+      if (apiPath === '/api/integrations/status' && method === 'GET') {
+        return jsonResponse({
+          success: true,
+          data: {
+            strapi: {
+              configured: false,
+              baseUrl: 'http://localhost:1337',
+              online: false,
+              mode: 'LOCAL_FALLBACK',
+              lastCheckedAt: new Date().toISOString(),
+            },
+            erpSync: {
+              endpoint: '/api/webhooks/erp-sync',
+              secretConfigured: true,
+              recentLogs: [],
+            },
+            aiAgent: {
+              endpoint: '/api/ai/chat',
+              provider: 'LOCAL_CATALOG_ENGINE',
+              whatsappHandoff: '+55 27 99834-5027',
+            },
+            socialAutomation: {
+              endpoint: '/api/webhooks/strapi-social',
+              externalWebhookConfigured: false,
+              recentPosts: [],
+            },
+          },
+        });
       }
 
       return originalFetch(input, init);

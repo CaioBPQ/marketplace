@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// API /auth/me - Retorna dados do usuário autenticado
+// API /auth/me - Retorna dados do gestor autenticado (Strapi ou Local)
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -10,17 +10,15 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    // ─── Extrai e valida o token do header Authorization ──
     const payload = getAuthUser(request);
 
-    if (!payload) {
+    if (!payload || payload.role === 'USUARIO') {
       return NextResponse.json(
         { success: false, error: 'Não autorizado. Token inválido ou ausente.' },
         { status: 401 }
       );
     }
 
-    // ─── Busca o usuário no banco (exclui a senha) ────────
     const usuario = await prisma.user.findUnique({
       where: { id: payload.userId },
       select: {
@@ -31,16 +29,25 @@ export async function GET(request: NextRequest) {
         role: true,
         avatarUrl: true,
         createdAt: true,
-        // Se for LOJISTA, inclui dados da loja
-        loja: payload.role === 'LOJISTA' ? true : false,
+        loja: true,
       },
     });
 
     if (!usuario) {
-      return NextResponse.json(
-        { success: false, error: 'Usuário não encontrado.' },
-        { status: 404 }
-      );
+      // Caso o gestor tenha autenticado diretamente via Strapi CMS
+      const lojaPadrao = await prisma.loja.findFirst({ where: { ativo: true } });
+      return NextResponse.json({
+        success: true,
+        data: {
+          id: payload.userId,
+          nome: 'Gestor Strapi CMS',
+          email: payload.email,
+          telefone: null,
+          role: 'ADMIN',
+          avatarUrl: null,
+          loja: lojaPadrao,
+        },
+      });
     }
 
     return NextResponse.json({

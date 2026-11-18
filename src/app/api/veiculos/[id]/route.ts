@@ -7,6 +7,8 @@ import { prisma } from '@/lib/prisma';
 import { getAuthUser } from '@/lib/auth';
 import { veiculoSchema } from '@/lib/security';
 import { PLANOS, PlanoKey } from '@/lib/stripe';
+import { isStrapiConfigured, strapiGetVeiculoById, strapiUpsertVeiculo } from '@/lib/strapi';
+import { processStrapiSocialWebhook } from '@/lib/social-automation';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -19,6 +21,17 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+
+    if (isStrapiConfigured()) {
+      const strapiVeiculo = await strapiGetVeiculoById(id);
+      if (strapiVeiculo && strapiVeiculo.ativo) {
+        return NextResponse.json({
+          success: true,
+          source: 'STRAPI_CMS',
+          data: strapiVeiculo,
+        });
+      }
+    }
 
     const veiculo = await prisma.veiculo.findUnique({
       where: { id },
@@ -184,6 +197,18 @@ export async function PUT(
         ...(desejaDestaque !== undefined ? { destaque: destaqueFinal } : {}),
       },
     });
+
+    if (isStrapiConfigured()) {
+      await strapiUpsertVeiculo(veiculoAtualizado as unknown as Record<string, unknown>, id);
+    }
+    if (!veiculoAtualizado.vendido) {
+      await processStrapiSocialWebhook({
+        event: 'entry.update',
+        model: 'api::veiculo.veiculo',
+        entry: veiculoAtualizado as unknown as Record<string, unknown>,
+        createdAt: new Date().toISOString(),
+      });
+    }
 
     return NextResponse.json({
       success: true,

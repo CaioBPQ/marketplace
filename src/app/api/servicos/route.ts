@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUser } from '@/lib/auth';
+import { isStrapiConfigured, strapiGetServicos } from '@/lib/strapi';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -28,7 +29,18 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const categoria = searchParams.get('categoria') || undefined;
 
-    // Construção dinâmica do filtro WHERE
+    if (isStrapiConfigured()) {
+      const strapiServicos = await strapiGetServicos(categoria);
+      if (strapiServicos && strapiServicos.length > 0) {
+        return NextResponse.json({
+          success: true,
+          source: 'STRAPI_CMS',
+          data: strapiServicos,
+        });
+      }
+    }
+
+    // Construção dinâmica do filtro WHERE (Fallback SQLite/Prisma)
     const where: { ativo: boolean; categoria?: string } = {
       ativo: true,
     };

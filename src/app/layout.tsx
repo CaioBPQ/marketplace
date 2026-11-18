@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Toaster } from 'react-hot-toast';
 import WhatsAppButton from '@/components/WhatsAppButton';
+import AIAssistantWidget from '@/components/AIAssistantWidget';
 import GitHubPagesRuntime from '@/components/GitHubPagesRuntime';
 import './globals.css';
 
@@ -36,6 +37,7 @@ export default function RootLayout({
       <body className="min-h-screen flex flex-col bg-canvas font-sans antialiased text-ink">
         <GitHubPagesRuntime />
         {children}
+        <AIAssistantWidget />
         <WhatsAppButton />
         <Toaster
           position="bottom-right"

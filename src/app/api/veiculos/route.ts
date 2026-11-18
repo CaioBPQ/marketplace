@@ -9,6 +9,8 @@ import { getAuthUser } from '@/lib/auth';
 import { filtrosVeiculoSchema, veiculoSchema, checkRateLimit } from '@/lib/security';
 import { PLANOS, PlanoKey } from '@/lib/stripe';
 import { getClientIP } from '@/lib/utils';
+import { isStrapiConfigured, strapiGetVeiculos, strapiUpsertVeiculo } from '@/lib/strapi';
+import { processStrapiSocialWebhook } from '@/lib/social-automation';
 import { Prisma } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
@@ -51,7 +53,80 @@ export async function GET(request: NextRequest) {
 
     const filtros = resultado.data;
 
-    // ─── Construção dinâmica da cláusula WHERE ────────────
+    // ─── Prioridade Strapi Headless CMS (quando configurado e online) ───
+    if (isStrapiConfigured() && !filtros.minhas) {
+      const strapiData = await strapiGetVeiculos();
+      if (strapiData && strapiData.length > 0) {
+        const disponiveis = strapiData.filter((v) => v.ativo && !v.vendido);
+        const filtrados = disponiveis.filter((v) => {
+          if (filtros.marca && !filtros.marca.split(',').includes(v.marca)) return false;
+          if (filtros.modelo && !v.modelo.toLowerCase().includes(filtros.modelo.toLowerCase())) return false;
+          if (filtros.cambio && v.cambio !== filtros.cambio) return false;
+          if (filtros.combustivel && v.combustivel !== filtros.combustivel) return false;
+          if (filtros.categoria && v.categoria !== filtros.categoria) return false;
+          if (filtros.destaque && !v.destaque) return false;
+          if (filtros.ofertas && !v.precoPromocional) return false;
+          if (filtros.precoMin && v.preco < filtros.precoMin) return false;
+          if (filtros.precoMax && v.preco > filtros.precoMax) return false;
+          if (filtros.anoMin && v.ano < filtros.anoMin) return false;
+          if (filtros.anoMax && v.ano > filtros.anoMax) return false;
+          if (filtros.kmMax !== undefined && v.km > filtros.kmMax) return false;
+          if (
+            filtros.busca &&
+            !`${v.marca} ${v.modelo} ${v.versao || ''}`.toLowerCase().includes(filtros.busca.toLowerCase())
+          ) {
+            return false;
+          }
+          return true;
+        });
+
+        const totalStrapi = filtrados.length;
+        const skipStrapi = (filtros.pagina - 1) * filtros.limite;
+        const paginadosStrapi = filtrados.slice(skipStrapi, skipStrapi + filtros.limite);
+
+        const countField = (field: 'marca' | 'cambio' | 'combustivel' | 'categoria') => {
+          const m = new Map<string, number>();
+          disponiveis.forEach((item) => {
+            const val = item[field];
+            if (val) m.set(val, (m.get(val) || 0) + 1);
+          });
+          return Array.from(m.entries()).map(([nome, count]) => ({ nome, count }));
+        };
+
+        return NextResponse.json({
+          success: true,
+          source: 'STRAPI_CMS',
+          data: paginadosStrapi,
+          contagens: {
+            marcas: countField('marca'),
+            cambios: countField('cambio'),
+            combustiveis: countField('combustivel'),
+            categorias: countField('categoria'),
+            precoRange: {
+              min: Math.min(...disponiveis.map((v) => v.preco)),
+              max: Math.max(...disponiveis.map((v) => v.preco)),
+            },
+            anoRange: {
+              min: Math.min(...disponiveis.map((v) => v.ano)),
+              max: Math.max(...disponiveis.map((v) => v.ano)),
+            },
+            kmRange: {
+              min: Math.min(...disponiveis.map((v) => v.km)),
+              max: Math.max(...disponiveis.map((v) => v.km)),
+            },
+            total: disponiveis.length,
+          },
+          meta: {
+            total: totalStrapi,
+            pagina: filtros.pagina,
+            limite: filtros.limite,
+            totalPaginas: Math.max(1, Math.ceil(totalStrapi / filtros.limite)),
+          },
+        });
+      }
+    }
+
+    // ─── Construção dinâmica da cláusula WHERE (Fallback SQLite/Prisma) ────────────
     const where: Prisma.VeiculoWhereInput = {
       ativo: true,
     };
@@ -401,6 +476,17 @@ export async function POST(request: NextRequest) {
         destaque: destaquePermitido,
         lojaId: loja.id,
       },
+    });
+
+    // Sincroniza com Strapi CMS e dispara automação de postagem social
+    if (isStrapiConfigured()) {
+      await strapiUpsertVeiculo(veiculo as unknown as Record<string, unknown>);
+    }
+    await processStrapiSocialWebhook({
+      event: 'entry.create',
+      model: 'api::veiculo.veiculo',
+      entry: veiculo as unknown as Record<string, unknown>,
+      createdAt: new Date().toISOString(),
     });
 
     return NextResponse.json(

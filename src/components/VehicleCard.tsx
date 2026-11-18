@@ -52,7 +52,7 @@ export default function VehicleCard({
     : 0;
 
   const whatsappHref = gerarLinkWhatsApp({
-    numero: vehicle.loja?.whatsapp || '5527999999999',
+    numero: vehicle.loja?.whatsapp || '5527998345027',
     marca: vehicle.marca,
     modelo: vehicle.modelo,
     ano: vehicle.ano,

@@ -65,8 +65,8 @@
       "cep": "06020010",
       "latitude": null,
       "longitude": null,
-      "telefone": "1140028922",
-      "whatsapp": "5511999881234",
+      "telefone": "27998345027",
+      "whatsapp": "5527998345027",
       "email": "contato@premiumcarros.com.br",
       "website": "https://premiumcarros.com.br",
       "horarioFuncionamento": "Seg-Sex: 8h às 18h | Sáb: 8h às 14h",
@@ -77,7 +77,7 @@
       "assinaturaExpira": null,
       "ativo": true,
       "createdAt": "2026-11-17T18:46:41.449Z",
-      "updatedAt": "2026-11-17T18:46:41.449Z",
+      "updatedAt": "2026-11-18T16:25:21.085Z",
       "userId": "cmwl1navg00012d79bwp6ordd"
     },
     {
@@ -93,8 +93,8 @@
       "cep": "20530001",
       "latitude": null,
       "longitude": null,
-      "telefone": "2135551234",
-      "whatsapp": "5521988776655",
+      "telefone": "27998345027",
+      "whatsapp": "5527998345027",
       "email": "vendas@autotop.com.br",
       "website": null,
       "horarioFuncionamento": "Seg-Sex: 9h às 19h | Sáb: 9h às 15h",
@@ -105,7 +105,7 @@
       "assinaturaExpira": null,
       "ativo": true,
       "createdAt": "2026-11-17T18:46:41.493Z",
-      "updatedAt": "2026-11-17T18:46:41.493Z",
+      "updatedAt": "2026-11-18T16:25:21.085Z",
       "userId": "cmwl1nawb00022d79tzc2penf"
     },
     {
@@ -121,8 +121,8 @@
       "cep": "30494000",
       "latitude": null,
       "longitude": null,
-      "telefone": "3133445566",
-      "whatsapp": "5531977665544",
+      "telefone": "27998345027",
+      "whatsapp": "5527998345027",
       "email": "contato@luxmotors.com.br",
       "website": null,
       "horarioFuncionamento": "Seg-Sex: 8h30 às 18h30 | Sáb: 9h às 13h",
@@ -133,7 +133,7 @@
       "assinaturaExpira": null,
       "ativo": true,
       "createdAt": "2026-11-17T18:46:41.520Z",
-      "updatedAt": "2026-11-17T18:46:41.520Z",
+      "updatedAt": "2026-11-18T16:25:21.085Z",
       "userId": "cmwl1nawt00032d79wzx78dps"
     }
   ],

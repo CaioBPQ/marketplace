@@ -77,14 +77,26 @@ function SharedLeadFields({
         const parsed = JSON.parse(userJson) as {
           nome?: string;
           email?: string;
+          telefone?: string;
         };
         if (parsed.nome) setNome((prev) => prev || parsed.nome || '');
         if (parsed.email) setEmail((prev) => prev || parsed.email || '');
+        if (parsed.telefone) {
+          setTelefone((prev) => prev || formatarTelefoneBR(parsed.telefone || ''));
+        }
       }
     } catch {
       // Ignora erro de leitura do localStorage
     }
   }, []);
+
+  const numeroWhatsAppVendedor = '5527998345027';
+  const textoWhatsAppDireto = encodeURIComponent(
+    `Olá! Meu nome é ${nome.trim() || 'Cliente'} (${telefone.trim() || 'WhatsApp'}). ${
+      mensagem.trim() || `Tenho interesse no veículo ${veiculoNome}.`
+    }`
+  );
+  const urlWhatsAppVendedor = `https://wa.me/${numeroWhatsAppVendedor}?text=${textoWhatsAppDireto}`;
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -143,7 +155,10 @@ function SharedLeadFields({
       }
 
       setEnviado(true);
-      toast.success('Proposta enviada! A loja responderá em breve.');
+      toast.success('Proposta registrada! Abrindo atendimento no WhatsApp do vendedor...');
+      if (typeof window !== 'undefined') {
+        window.open(urlWhatsAppVendedor, '_blank', 'noopener,noreferrer');
+      }
       onSuccess?.();
     } catch {
       const msgErro = 'Erro de conexão. Verifique sua internet e tente novamente.';
@@ -156,23 +171,33 @@ function SharedLeadFields({
 
   if (enviado) {
     return (
-      <div className="rounded-editorial border border-sage-600/30 bg-sage-50 p-6 text-center">
+      <div className="rounded-editorial border border-sage-600/30 bg-sage-50 p-6 text-center space-y-3">
         <CheckCircle2 className="mx-auto h-9 w-9 text-sage-700" />
-        <h4 className="mt-3 font-serif text-xl font-semibold text-ink">
-          Interesse enviado com sucesso
+        <h4 className="font-serif text-xl font-semibold text-ink">
+          Interesse registrado com sucesso!
         </h4>
-        <p className="mt-1 text-xs leading-relaxed text-ink-secondary sm:text-sm">
-          Um consultor recebeu seus dados sobre{' '}
-          <strong className="font-semibold text-ink">{veiculoNome}</strong> e
-          entrará em contato rapidamente.
+        <p className="text-xs leading-relaxed text-ink-secondary sm:text-sm">
+          Sua proposta para <strong className="font-semibold text-ink">{veiculoNome}</strong> foi salva no painel do vendedor e no seu perfil, e direcionada para o WhatsApp{' '}
+          <strong className="text-ink">+55 (27) 99834-5027</strong>.
         </p>
-        <button
-          type="button"
-          onClick={() => setEnviado(false)}
-          className="mt-4 inline-flex items-center justify-center rounded-editorial border border-hairline bg-surface px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-ink transition-colors hover:border-ink"
-        >
-          Enviar outra mensagem
-        </button>
+        <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2.5">
+          <a
+            href={urlWhatsAppVendedor}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-editorial bg-sage-700 hover:bg-sage-800 px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-canvas transition-colors"
+          >
+            <Phone className="h-3.5 w-3.5" />
+            Abrir WhatsApp (+55 27 99834-5027)
+          </a>
+          <button
+            type="button"
+            onClick={() => setEnviado(false)}
+            className="w-full sm:w-auto inline-flex items-center justify-center rounded-editorial border border-hairline bg-surface px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-ink transition-colors hover:border-ink"
+          >
+            Enviar outra mensagem
+          </button>
+        </div>
       </div>
     );
   }

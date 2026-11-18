@@ -84,18 +84,18 @@ export const DEFAULT_COMPANY_BRAND: CompanyBrandConfig = {
   logoUrl: '',
   tema: 'BRONZE_EDITORIAL',
   endereco: 'Av. dos Autonomistas, 1500',
-  cidade: 'São Paulo',
-  estado: 'SP',
-  cep: '06020010',
-  telefone: '1140028922',
-  whatsapp: '5511999881234',
+  cidade: 'Vitória',
+  estado: 'ES',
+  cep: '29055000',
+  telefone: '(27) 99834-5027',
+  whatsapp: '5527998345027',
   email: 'contato@automarket.com.br',
   horarioFuncionamento: 'Seg-Sex: 8h às 18h | Sáb: 8h às 14h',
   descricao:
     'Showroom especializado em veículos seminovos selecionados, periciados com laudo cautelar 100% aprovado e garantia própria.',
 };
 
-const STORAGE_KEY = 'automarket-company-brand';
+const STORAGE_KEY = 'automarket-company-brand-v2';
 
 export function aplicarTemaEsteticoCSS(temaKey: AestheticThemeKey) {
   if (typeof document === 'undefined') return;

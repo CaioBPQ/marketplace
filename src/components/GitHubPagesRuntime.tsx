@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import initialSnapshot from '@/lib/initial-db-snapshot.json';
 
-const DB_STORAGE_KEY = 'automarket-ghpages-db-v1';
+const DB_STORAGE_KEY = 'automarket-ghpages-db-v2';
 
 interface SnapshotDB {
   users: any[];

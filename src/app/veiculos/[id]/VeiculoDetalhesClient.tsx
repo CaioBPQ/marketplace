@@ -181,7 +181,7 @@ export default function VeiculoDetalhesClient() {
       : 0;
 
   const linkWhatsApp = gerarLinkWhatsApp({
-    numero: veiculo.loja?.whatsapp || '5527999999999',
+    numero: veiculo.loja?.whatsapp || '5527998345027',
     marca: veiculo.marca,
     modelo: veiculo.modelo,
     ano: veiculo.ano,

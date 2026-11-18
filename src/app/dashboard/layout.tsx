@@ -50,21 +50,14 @@ export default function DashboardLayout({
     let ativo = true;
 
     async function verificarAuth() {
-      const token = localStorage.getItem('automarket-token');
-      if (!token) {
-        router.replace(`/login?redirect=${encodeURIComponent(pathname || '/dashboard')}`);
-        return;
-      }
-
       try {
         const res = await fetch('/api/auth/me', {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
         });
 
         if (!res.ok) {
-          localStorage.removeItem('automarket-token');
           localStorage.removeItem('automarket-user');
-          router.replace('/login');
+          router.replace(`/login?redirect=${encodeURIComponent(pathname || '/dashboard')}`);
           return;
         }
 
@@ -95,13 +88,14 @@ export default function DashboardLayout({
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
     } catch {
       // Ignora erro de rede ao limpar sessão
     }
-    localStorage.removeItem('automarket-token');
     localStorage.removeItem('automarket-user');
-    document.cookie = 'automarket-token=; path=/; max-age=0';
     window.dispatchEvent(new Event('automarket-auth-change'));
     toast.success('Sessão encerrada.');
     router.push('/login');

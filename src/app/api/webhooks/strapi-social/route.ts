@@ -16,7 +16,19 @@ import type { StrapiWebhookEvent, StrapiWebhookPayload } from '@/types/index';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const secretHeader =
+    request.headers.get('x-strapi-webhook-secret') ||
+    request.headers.get('x-webhook-secret') ||
+    request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
+
+  if (!verifyStrapiWebhookToken(secretHeader)) {
+    return NextResponse.json(
+      { success: false, error: 'Não autorizado.' },
+      { status: 401 }
+    );
+  }
+
   return NextResponse.json({
     success: true,
     data: {

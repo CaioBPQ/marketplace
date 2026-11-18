@@ -183,13 +183,10 @@ export default function DashboardVeiculosPage() {
   }, []);
 
   const carregarVeiculos = useCallback(async () => {
-    const token = localStorage.getItem('automarket-token');
-    if (!token) return;
-
     setLoading(true);
     try {
       const res = await fetch('/api/veiculos?minhas=true&limite=50', {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       const json = await res.json();
       if (res.ok && json.success && Array.isArray(json.data)) {
@@ -346,9 +343,6 @@ export default function DashboardVeiculosPage() {
 
   const handleSalvarVeiculo = async (e: React.FormEvent) => {
     e.preventDefault();
-    const token = localStorage.getItem('automarket-token');
-    if (!token) return;
-
     if (fotosUpload.length === 0) {
       toast.error('Envie pelo menos 1 foto do veículo do seu dispositivo.');
       return;
@@ -400,9 +394,9 @@ export default function DashboardVeiculosPage() {
 
       const res = await fetch(url, {
         method,
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
@@ -442,16 +436,13 @@ export default function DashboardVeiculosPage() {
     e.preventDefault();
     if (!veiculoParaVenda) return;
 
-    const token = localStorage.getItem('automarket-token');
-    if (!token) return;
-
     setRegistrandoVenda(true);
     try {
       const res = await fetch(`/api/veiculos/${veiculoParaVenda.id}`, {
         method: 'PUT',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           vendido: true,
@@ -479,15 +470,12 @@ export default function DashboardVeiculosPage() {
   };
 
   const handleReativarVeiculo = async (v: VeiculoComLoja) => {
-    const token = localStorage.getItem('automarket-token');
-    if (!token) return;
-
     try {
       const res = await fetch(`/api/veiculos/${v.id}`, {
         method: 'PUT',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ vendido: false }),
       });
@@ -505,13 +493,11 @@ export default function DashboardVeiculosPage() {
 
   const handleExcluir = async (v: Veiculo) => {
     if (!confirm(`Deseja realmente remover ${v.marca} ${v.modelo}?`)) return;
-    const token = localStorage.getItem('automarket-token');
-    if (!token) return;
 
     try {
       const res = await fetch(`/api/veiculos/${v.id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       const json = await res.json();
       if (res.ok && json.success) {

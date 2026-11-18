@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUser } from '@/lib/auth';
-import { veiculoSchema } from '@/lib/security';
+import { veiculoUpdateSchema } from '@/lib/security';
 import { PLANOS, PlanoKey } from '@/lib/stripe';
 import { isStrapiConfigured, strapiGetVeiculoById, strapiUpsertVeiculo } from '@/lib/strapi';
 import { processStrapiSocialWebhook } from '@/lib/social-automation';
@@ -98,22 +98,23 @@ export async function PUT(
 
     let loja = veiculoExistente.loja;
 
-    if (payload.role !== 'ADMIN' && payload.role !== 'LOJISTA') {
+    const ehDonoDaLoja = veiculoExistente.loja.userId === payload.userId;
+    if (payload.role !== 'ADMIN' && !(payload.role === 'LOJISTA' && ehDonoDaLoja)) {
       return NextResponse.json(
-        { success: false, error: 'Sem permissão para editar este veículo.' },
+        { success: false, error: 'Sem permissão para editar veículo de outra loja.' },
         { status: 403 }
       );
     }
 
-    // ─── Validação parcial ────────────────────────────────
+    // ─── Validação parcial + cruzada ──────────────────────
     const body = await request.json();
-    const resultado = veiculoSchema.partial().safeParse(body);
+    const resultado = veiculoUpdateSchema.safeParse(body);
 
     if (!resultado.success) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Dados inválidos.',
+          error: resultado.error.issues[0]?.message || 'Dados inválidos.',
           detalhes: resultado.error.flatten().fieldErrors,
         },
         { status: 400 }
@@ -124,35 +125,25 @@ export async function PUT(
       imagemPrincipal,
       destaque: desejaDestaque,
       lojaId: _ignoreLojaId,
+      cadastradoPorId: _ignoreCadastradoPorId,
+      cadastradoPorNome: _ignoreCadastradoPorNome,
+      ativo: _ignoreAtivo,
       dataVenda: rawDataVenda,
+      vendidoPorId: _ignoreVendidoPorId,
       ...rest
     } = resultado.data;
 
-    // ─── Regra Pilar III: não permite ativar destaque sem assinatura/cota
-    let destaqueFinal = veiculoExistente.destaque;
-    if (desejaDestaque === false) {
-      destaqueFinal = false;
-    } else if (desejaDestaque === true && !veiculoExistente.destaque) {
-      if (loja.assinaturaAtiva) {
-        const planoInfo = PLANOS[loja.plano as PlanoKey];
-        const limiteDestaques = planoInfo?.destaques ?? 0;
-
-        if (limiteDestaques > 0) {
-          const outrosDestaques = await prisma.veiculo.count({
-            where: {
-              lojaId: loja.id,
-              ativo: true,
-              destaque: true,
-              id: { not: id },
-            },
-          });
-          destaqueFinal = outrosDestaques < limiteDestaques;
-        } else {
-          destaqueFinal = false;
-        }
-      } else {
-        destaqueFinal = false;
-      }
+    // ─── Validação preço promocional vs preço armazenado ──
+    const precoFinal = rest.preco ?? veiculoExistente.preco;
+    const promoFinal =
+      rest.precoPromocional !== undefined
+        ? rest.precoPromocional
+        : veiculoExistente.precoPromocional;
+    if (promoFinal !== null && promoFinal !== undefined && promoFinal >= precoFinal) {
+      return NextResponse.json(
+        { success: false, error: 'Preço promocional deve ser menor que o preço principal.' },
+        { status: 400 }
+      );
     }
 
     // ─── Tratamento de Venda / Reativação e Rastreio do Vendedor
@@ -170,11 +161,9 @@ export async function PUT(
         rest.precoCusto ??
         veiculoExistente.precoCusto ??
         Math.round(veiculoExistente.preco * 0.82);
-      vendaDataUpdate.vendidoPorId =
-        rest.vendidoPorId || veiculoExistente.vendidoPorId || usuario?.id || payload.userId;
+      vendaDataUpdate.vendidoPorId = usuario?.id || payload.userId;
       vendaDataUpdate.vendidoPorNome =
-        rest.vendidoPorNome ||
-        veiculoExistente.vendidoPorNome ||
+        (payload.role === 'ADMIN' ? rest.vendidoPorNome : null) ||
         usuario?.nome ||
         veiculoExistente.cadastradoPorNome ||
         loja.nome;
@@ -187,15 +176,43 @@ export async function PUT(
       vendaDataUpdate.dataVenda = rawDataVenda ? new Date(rawDataVenda) : null;
     }
 
-    // ─── Atualiza o veículo ───────────────────────────────
-    const veiculoAtualizado = await prisma.veiculo.update({
-      where: { id },
-      data: {
-        ...rest,
-        ...vendaDataUpdate,
-        ...(imagemPrincipal !== undefined ? { imagemPrincipal: imagemPrincipal || null } : {}),
-        ...(desejaDestaque !== undefined ? { destaque: destaqueFinal } : {}),
-      },
+    // ─── Transação atômica: cota de destaque + atualização segura
+    const veiculoAtualizado = await prisma.$transaction(async (tx) => {
+      let destaqueFinal = veiculoExistente.destaque;
+      if (desejaDestaque === false) {
+        destaqueFinal = false;
+      } else if (desejaDestaque === true && !veiculoExistente.destaque) {
+        if (loja.assinaturaAtiva) {
+          const planoInfo = PLANOS[loja.plano as PlanoKey];
+          const limiteDestaques = planoInfo?.destaques ?? 0;
+
+          if (limiteDestaques > 0) {
+            const outrosDestaques = await tx.veiculo.count({
+              where: {
+                lojaId: loja.id,
+                ativo: true,
+                destaque: true,
+                id: { not: id },
+              },
+            });
+            destaqueFinal = outrosDestaques < limiteDestaques;
+          } else {
+            destaqueFinal = false;
+          }
+        } else {
+          destaqueFinal = false;
+        }
+      }
+
+      return tx.veiculo.update({
+        where: { id },
+        data: {
+          ...rest,
+          ...vendaDataUpdate,
+          ...(imagemPrincipal !== undefined ? { imagemPrincipal: imagemPrincipal || null } : {}),
+          ...(desejaDestaque !== undefined ? { destaque: destaqueFinal } : {}),
+        },
+      });
     });
 
     if (isStrapiConfigured()) {
@@ -243,6 +260,7 @@ export async function DELETE(
 
     const veiculo = await prisma.veiculo.findUnique({
       where: { id },
+      include: { loja: true },
     });
 
     if (!veiculo || !veiculo.ativo) {
@@ -252,9 +270,10 @@ export async function DELETE(
       );
     }
 
-    if (payload.role !== 'ADMIN' && payload.role !== 'LOJISTA') {
+    const ehDonoDaLoja = veiculo.loja.userId === payload.userId;
+    if (payload.role !== 'ADMIN' && !(payload.role === 'LOJISTA' && ehDonoDaLoja)) {
       return NextResponse.json(
-        { success: false, error: 'Sem permissão para remover este veículo.' },
+        { success: false, error: 'Sem permissão para remover veículo de outra loja.' },
         { status: 403 }
       );
     }

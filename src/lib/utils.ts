@@ -48,13 +48,26 @@ export function gerarSlug(texto: string): string {
     .replace(/^-|-$/g, '');
 }
 
-// Extrai IP do request para rate limiting
+// Extrai IP do request para rate limiting (mitigando spoofing de x-forwarded-for)
 export function getClientIP(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
+  const trustedEdgeIp =
+    request.headers.get('cf-connecting-ip') ||
+    request.headers.get('x-vercel-forwarded-for') ||
+    request.headers.get('x-real-ip');
+
+  if (trustedEdgeIp) {
+    return trustedEdgeIp.split(',')[0].trim();
   }
-  return request.headers.get('x-real-ip') || '127.0.0.1';
+
+  if (process.env.TRUST_PROXY === 'true') {
+    const forwarded = request.headers.get('x-forwarded-for');
+    if (forwarded) {
+      const hops = forwarded.split(',').map((ip) => ip.trim()).filter(Boolean);
+      return hops[hops.length - 1] || '127.0.0.1';
+    }
+  }
+
+  return '127.0.0.1';
 }
 
 // Mapas de labels amigáveis

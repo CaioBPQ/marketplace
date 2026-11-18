@@ -1,15 +1,33 @@
 // ═══════════════════════════════════════════════════════════
 // API de Status das Integrações (Strapi, ERP, IA, Social)
+// Acesso restrito a gestores e lojistas autenticados.
 // ═══════════════════════════════════════════════════════════
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { getAuthUser } from '@/lib/auth';
 import { getStrapiConnectionStatus } from '@/lib/strapi';
 import { getErpSyncHistory } from '@/lib/erp-sync';
 import { getSocialAutomationHistory } from '@/lib/social-automation';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const payload = getAuthUser(request);
+
+  if (!payload) {
+    return NextResponse.json(
+      { success: false, error: 'Não autorizado.' },
+      { status: 401 }
+    );
+  }
+
+  if (payload.role !== 'ADMIN' && payload.role !== 'LOJISTA') {
+    return NextResponse.json(
+      { success: false, error: 'Acesso restrito a administradores e lojistas.' },
+      { status: 403 }
+    );
+  }
+
   const strapi = await getStrapiConnectionStatus();
 
   return NextResponse.json({

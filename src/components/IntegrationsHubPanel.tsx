@@ -46,9 +46,11 @@ export default function IntegrationsHubPanel() {
 
   const loadStatus = async () => {
     try {
-      const res = await fetch('/api/integrations/status');
+      const res = await fetch('/api/integrations/status', {
+        credentials: 'include',
+      });
       const json = await res.json();
-      if (json.success && json.data) {
+      if (res.ok && json.success && json.data) {
         setStatus(json.data);
         if (json.data.socialAutomation?.recentPosts?.[0]) {
           setLastSocialPreview(json.data.socialAutomation.recentPosts[0]);
@@ -68,31 +70,13 @@ export default function IntegrationsHubPanel() {
   const handleTestErpSync = async () => {
     setTestingErp(true);
     try {
-      const res = await fetch('/api/webhooks/erp-sync', {
+      const res = await fetch('/api/integrations/simulate', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'x-webhook-secret': 'demo-erp-sync',
         },
-        body: JSON.stringify({
-          event: 'vehicle.upsert',
-          sourceErp: 'DealerNet DMS (Teste)',
-          data: {
-            externalErpId: `ERP-TEST-${Date.now().toString().slice(-4)}`,
-            placa: 'ABC1D23',
-            marca: 'Toyota',
-            modelo: 'Corolla Cross',
-            versao: 'XRX Hybrid 1.8',
-            ano: 2025,
-            km: 4200,
-            cambio: 'CVT',
-            combustivel: 'HIBRIDO',
-            categoria: 'SUV',
-            cor: 'Branco Pérola',
-            preco: 194900,
-            destaque: true,
-          },
-        }),
+        body: JSON.stringify({ action: 'erp-sync' }),
       });
       const json = await res.json();
       if (res.ok && json.success) {
@@ -102,7 +86,7 @@ export default function IntegrationsHubPanel() {
         toast.error(json.error || 'Erro ao simular sincronização ERP.');
       }
     } catch {
-      toast.error('Falha ao acionar webhook ERP.');
+      toast.error('Falha ao acionar simulador ERP.');
     } finally {
       setTestingErp(false);
     }
@@ -111,16 +95,13 @@ export default function IntegrationsHubPanel() {
   const handleTestSocialWebhook = async () => {
     setTestingSocial(true);
     try {
-      const res = await fetch('/api/webhooks/strapi-social', {
+      const res = await fetch('/api/integrations/simulate', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'x-strapi-webhook-secret': 'demo-trigger',
         },
-        body: JSON.stringify({
-          event: 'entry.create',
-          model: 'api::veiculo.veiculo',
-        }),
+        body: JSON.stringify({ action: 'strapi-social' }),
       });
       const json = await res.json();
       if (res.ok && json.success && json.data) {
@@ -131,7 +112,7 @@ export default function IntegrationsHubPanel() {
         toast.error(json.error || 'Erro ao gerar post automático.');
       }
     } catch {
-      toast.error('Falha ao acionar webhook social.');
+      toast.error('Falha ao acionar simulador social.');
     } finally {
       setTestingSocial(false);
     }
@@ -192,7 +173,7 @@ export default function IntegrationsHubPanel() {
                   Webhook ERP / DMS
                 </span>
                 <span className="text-[10px] font-mono text-bronze-700 bg-bronze-100 px-2 py-0.5 rounded-editorial">
-                  Anti-Duplo Cadastro
+                  HMAC Fail-Closed
                 </span>
               </div>
               <p className="text-[11px] text-ink-secondary mt-2 leading-relaxed">

@@ -1,21 +1,31 @@
 // ═══════════════════════════════════════════════════════════
 // Webhook de Integração Externa (ERP / DMS Sync)
 // POST /api/webhooks/erp-sync
-// Evita duplo cadastro sincronizando veículos diretamente do
-// sistema de gestão utilizado pela concessionária.
+// Autenticado estritamente via ERP_WEBHOOK_SECRET + Zod Schema
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
 import {
+  erpWebhookPayloadSchema,
   executeErpCatalogSync,
   getErpSyncHistory,
   verifyErpWebhookSignature,
 } from '@/lib/erp-sync';
+import { checkRateLimit } from '@/lib/security';
+import { getClientIP } from '@/lib/utils';
 import type { ERPWebhookPayload } from '@/types/index';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const secretHeader = request.headers.get('x-webhook-secret');
+  if (!verifyErpWebhookSignature('', secretHeader, null)) {
+    return NextResponse.json(
+      { success: false, error: 'Não autorizado.' },
+      { status: 401 }
+    );
+  }
+
   return NextResponse.json({
     success: true,
     data: {
@@ -35,6 +45,15 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIP(request);
+    const rl = checkRateLimit(`webhook_erp:${ip}`, 30);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Limite de requisições excedido.' },
+        { status: 429 }
+      );
+    }
+
     const rawBody = await request.text();
     const secretHeader = request.headers.get('x-webhook-secret');
     const hmacHeader = request.headers.get('x-erp-signature');
@@ -50,9 +69,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let body: ERPWebhookPayload;
+    let rawJson: unknown;
     try {
-      body = JSON.parse(rawBody) as ERPWebhookPayload;
+      rawJson = JSON.parse(rawBody);
     } catch {
       return NextResponse.json(
         { success: false, error: 'JSON inválido no corpo do webhook ERP.' },
@@ -60,18 +79,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!body || !body.data) {
+    const parsed = erpWebhookPayloadSchema.safeParse(rawJson);
+    if (!parsed.success) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            'Payload incompleto. Informe { event, sourceErp, data: { externalErpId, marca, modelo, ano, preco, ... } }.',
+          error: 'Payload do ERP inválido.',
+          detalhes: parsed.error.flatten().fieldErrors,
         },
         { status: 400 }
       );
     }
 
-    const resultado = await executeErpCatalogSync(body);
+    const resultado = await executeErpCatalogSync(parsed.data as ERPWebhookPayload);
 
     return NextResponse.json(
       {
@@ -86,10 +106,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Erro interno ao processar sincronização com o ERP.',
+        error: 'Erro interno ao processar sincronização com o ERP.',
       },
       { status: 500 }
     );

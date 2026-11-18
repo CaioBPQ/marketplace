@@ -145,9 +145,6 @@ export default function InteractiveSalesDashboard({
 
   const carregarDados = useCallback(
     async (inicio: string, fim: string, vend: string, silencioso = false) => {
-      const token = localStorage.getItem('automarket-token');
-      if (!token) return;
-
       if (silencioso) {
         setAtualizandoPeriodo(true);
       } else {
@@ -162,7 +159,7 @@ export default function InteractiveSalesDashboard({
         if (vend) params.set('vendedor', vend);
 
         const res = await fetch(`/api/dashboard/stats?${params.toString()}`, {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
         });
         const json = await res.json();
         if (res.ok && json.success && json.data) {
@@ -186,15 +183,12 @@ export default function InteractiveSalesDashboard({
   }, [dataInicio, dataFim, vendedorFiltro, carregarDados]);
 
   const handleAtualizarAgendamento = async (id: string, novoStatus: string) => {
-    const token = localStorage.getItem('automarket-token');
-    if (!token) return;
-
     try {
       const res = await fetch('/api/agendamentos', {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ id, status: novoStatus }),
       });

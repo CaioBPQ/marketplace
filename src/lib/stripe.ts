@@ -21,6 +21,18 @@ export function isStripeConfigured(): boolean {
   );
 }
 
+// Obtém o webhook secret garantindo falha fechada em produção
+function getStripeWebhookSecret(): string {
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!secret || secret.includes('SeuWebhookSecret') || secret.length < 16) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CONFIG_ERROR: STRIPE_WEBHOOK_SECRET é obrigatório em produção.');
+    }
+    return 'whsec_dev_sandbox_local_secret_key';
+  }
+  return secret;
+}
+
 // Inicializa o cliente Stripe
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_sandbox_placeholder', {
   apiVersion: '2024-10-28.acacia' as Stripe.LatestApiVersion,
@@ -105,10 +117,13 @@ export async function criarPaymentIntentTransparente(params: {
   };
 }
 
-// ─── Gerar Assinatura HMAC-SHA256 do Webhook (Padrão Stripe)
+// ─── Gerar Assinatura HMAC-SHA256 do Webhook (Apenas Sandbox Dev)
 export function gerarAssinaturaWebhookSandbox(payload: string): string {
+  if (process.env.NODE_ENV === 'production' && isStripeConfigured()) {
+    throw new Error('Assinatura sandbox desabilitada em produção com Stripe real.');
+  }
   const timestamp = Math.floor(Date.now() / 1000);
-  const secret = process.env.STRIPE_WEBHOOK_SECRET || 'whsec_sandbox_secret';
+  const secret = getStripeWebhookSecret();
   const signedPayload = `${timestamp}.${payload}`;
   const signature = crypto
     .createHmac('sha256', secret)
@@ -155,10 +170,14 @@ export function verificarWebhookSignature(
   payload: string | Buffer,
   signature: string
 ): Stripe.Event {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET || 'whsec_sandbox_secret';
+  const secret = getStripeWebhookSecret();
 
   if (isStripeConfigured()) {
     return stripe.webhooks.constructEvent(payload, signature, secret);
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Verificação sandbox de webhook não permitida em produção.');
   }
 
   // Verificação HMAC-SHA256 no modo Sandbox seguindo exatamente o formato t=...,v1=...

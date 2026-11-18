@@ -7,8 +7,20 @@ import jwt from 'jsonwebtoken';
 import { NextRequest } from 'next/server';
 
 // ─── Configuração ─────────────────────────────────────────
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-me';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
+const DEV_EPHEMERAL_SECRET = 'dev-only-automarket-jwt-secret-min-32-chars!';
+
+export function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32 || secret.includes('change-in-production') || secret.includes('fallback-secret')) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CONFIG_ERROR: JWT_SECRET forte (>= 32 caracteres) é obrigatória em produção.');
+    }
+    return DEV_EPHEMERAL_SECRET;
+  }
+  return secret;
+}
+
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h';
 const SALT_ROUNDS = 12; // Custo computacional do bcrypt
 
 // ─── Tipos ────────────────────────────────────────────────
@@ -33,14 +45,14 @@ export async function comparePassword(password: string, hash: string): Promise<b
 // ─── JWT (JSON Web Tokens) ────────────────────────────────
 // Tokens com expiração curta para segurança
 export function generateToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string {
-  return jwt.sign(payload, JWT_SECRET, {
+  return jwt.sign(payload, getJwtSecret(), {
     expiresIn: JWT_EXPIRES_IN,
   } as jwt.SignOptions);
 }
 
 export function verifyToken(token: string): JWTPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as JWTPayload;
+    return jwt.verify(token, getJwtSecret()) as JWTPayload;
   } catch {
     return null;
   }

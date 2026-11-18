@@ -97,11 +97,21 @@ export default function TransparentCheckoutModal({
 
   const emProcessamento = step === 'creating' || step === 'webhook';
 
+  const limparDadosSensiveisCartao = () => {
+    setNumeroCartao('');
+    setNomeTitular('');
+    setValidade('');
+    setCvv('');
+    setCpf('');
+  };
+
   useEffect(() => {
     if (isOpen) {
       setStep('form');
       setErro('');
       setTransacaoInfo(null);
+    } else {
+      limparDadosSensiveisCartao();
     }
   }, [isOpen]);
 
@@ -156,28 +166,40 @@ export default function TransparentCheckoutModal({
     e.preventDefault();
     setErro('');
 
+    // Trava PCI-DSS: bloqueia captura direta em DOM no ambiente de produção real sem tokenização Stripe Elements
+    const isStaticDemoHost =
+      typeof window !== 'undefined' &&
+      (window.location.hostname.endsWith('github.io') ||
+        process.env.NEXT_PUBLIC_GITHUB_PAGES === 'true');
+    if (
+      process.env.NODE_ENV === 'production' &&
+      !isStaticDemoHost &&
+      process.env.NEXT_PUBLIC_STRIPE_TOKENIZED_ENABLED !== 'true'
+    ) {
+      const msg =
+        'Checkout manual bloqueado em produção por conformidade PCI-DSS. Utilize Stripe Elements tokenizado.';
+      setErro(msg);
+      toast.error(msg);
+      limparDadosSensiveisCartao();
+      return;
+    }
+
     const erroValidacao = validarCartao();
     if (erroValidacao) {
       setErro(erroValidacao);
       return;
     }
 
-    const token = localStorage.getItem('automarket-token');
-    if (!token) {
-      const msg = 'Sessão expirada. Faça login novamente para continuar.';
-      setErro(msg);
-      toast.error(msg);
-      return;
-    }
+    const last4 = cardDigits.slice(-4);
 
     try {
       setStep('creating');
 
       const checkoutRes = await fetch('/api/stripe/checkout', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           tipo,
@@ -203,14 +225,14 @@ export default function TransparentCheckoutModal({
 
       const confirmRes = await fetch('/api/stripe/confirm', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           paymentIntentId: checkoutData.paymentIntentId,
           transacaoId: checkoutData.transacaoId,
-          cardLast4: cardDigits.slice(-4),
+          cardLast4: last4,
           cardBrand: bandeira,
         }),
       });
@@ -224,10 +246,12 @@ export default function TransparentCheckoutModal({
         );
       }
 
+      limparDadosSensiveisCartao();
       setStep('success');
       toast.success('Pagamento confirmado via Webhook! Benefício ativado.');
       onSuccess();
     } catch (err) {
+      limparDadosSensiveisCartao();
       const message =
         err instanceof Error
           ? err.message

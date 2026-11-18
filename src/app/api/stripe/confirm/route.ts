@@ -97,8 +97,29 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Em modo Stripe real, verifica se o PaymentIntent foi realmente pago
-    if (isStripeConfigured() && !paymentIntentId.startsWith('pi_sandbox_')) {
+    // Em produção, exige Stripe real configurado e bloqueia fluxos pi_sandbox_*
+    if (process.env.NODE_ENV === 'production' && (!isStripeConfigured() || paymentIntentId.startsWith('pi_sandbox_'))) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Modo sandbox desabilitado em produção. Utilize confirmação via webhook oficial do Stripe.',
+        },
+        { status: 403 }
+      );
+    }
+
+    // Em modo Stripe real, verifica se o PaymentIntent foi realmente pago e bloqueia IDs sandbox
+    if (isStripeConfigured()) {
+      if (paymentIntentId.startsWith('pi_sandbox_')) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'PaymentIntent sandbox não é aceito quando o Stripe real está configurado.',
+          },
+          { status: 400 }
+        );
+      }
+
       const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
       if (intent.status !== 'succeeded') {
         return NextResponse.json(

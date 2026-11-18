@@ -104,5 +104,8 @@ Refatorar a arquitetura do projeto **AutoMarket** mantendo 100% do objetivo de p
 ---
 
 ## 4. Parecer do Conselho dos Anciões (Preenchido por: Claude Opus 5.5)
-- **Status da Revisão:** `[APROVADO — Implementação concluída e validada com npx tsc --noEmit]`
-- **Apontamentos de Segurança / Lógica:** Plano arquitetural validado. A remoção das rotas de auto-cadastro e perfis múltiplos elimina riscos de escalação de privilégio (IDOR/Mass Assignment), enquanto os novos webhooks contam com verificação de segredo/assinatura HMAC e fallback seguro.
+- **Status da Revisão:** `[APROVADO + HARDENING APPSEC P0/P1/P2 CONCLUÍDO]`
+- **Apontamentos de Segurança / Lógica:** Auditoria SAST e remediação completa aplicadas em 3 fases:
+  - **Fase 1 (P0 + P1):** Chaves criptográficas no `.env` (sem commit), remoção de fallbacks inseguros (`auth.ts`, `jwt-edge.ts`, `stripe.ts`), webhooks fail-closed com `crypto.timingSafeEqual` (`erp-sync.ts`, `social-automation.ts`), simulador autenticado em `/api/integrations/simulate` substituindo segredos do client, trava sandbox em produção (`/api/stripe/confirm`), correção de IDOR (`veiculos`, `veiculos/[id]`, `dashboard/stats`, `integrations/status`), HTTP 410 em `/api/perfil`, cookie `HttpOnly + Secure` exclusivo sem JWT no `localStorage`, validação de role Strapi e bloqueio de Mass Assignment + cota atômica em `$transaction`.
+  - **Fase 2 (P2):** Schema Zod `aiChatRequestSchema` em `/api/ai/chat`, validação estrita de URL/payload no ERP, tratamento contra `NaN` em paginação (`/api/leads`, `/api/agendamentos`), proteção contra Open Redirect em `/login`, mitigação de IP spoofing em `getClientIP`, trava PCI-DSS no modal de checkout e CSP/remotePatterns endurecidos em `next.config.js` com typecheck e lint ativos no build.
+  - **Fase 3:** Atualização segura de dependências (`next@14.2.35`, `zod@3.25.76`), eliminando a CVE crítica de bypass no middleware (`GHSA-f82v-jwr5-mffw`), validada com `npx tsc --noEmit` e `npm run build` (51/51 rotas).

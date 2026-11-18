@@ -117,11 +117,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // ─── Parâmetros de filtro e paginação ─────────────────
+    // ─── Parâmetros de filtro e paginação seguros contra NaN
     const searchParams = request.nextUrl.searchParams;
     const statusFiltro = searchParams.get('status') || undefined;
-    const pagina = Math.max(1, parseInt(searchParams.get('pagina') || '1'));
-    const limite = Math.min(50, Math.max(1, parseInt(searchParams.get('limite') || '20')));
+    const paginaRaw = Number.parseInt(searchParams.get('pagina') || '1', 10);
+    const limiteRaw = Number.parseInt(searchParams.get('limite') || '20', 10);
+    const pagina = Number.isFinite(paginaRaw) ? Math.max(1, paginaRaw) : 1;
+    const limite = Number.isFinite(limiteRaw) ? Math.min(50, Math.max(1, limiteRaw)) : 20;
     const skip = (pagina - 1) * limite;
 
     // ─── Construção do filtro WHERE ───────────────────────

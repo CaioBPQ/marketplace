@@ -8,8 +8,8 @@ export default function PerfilRedirectPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem('automarket-token');
-    router.replace(token ? '/dashboard' : '/login');
+    const rawUser = localStorage.getItem('automarket-user');
+    router.replace(rawUser ? '/dashboard' : '/login');
   }, [router]);
 
   return (

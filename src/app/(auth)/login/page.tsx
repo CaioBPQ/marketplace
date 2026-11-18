@@ -53,7 +53,6 @@ function LoginFormContent() {
         return;
       }
 
-      localStorage.setItem('automarket-token', json.token);
       localStorage.setItem('automarket-user', JSON.stringify(json.user));
       window.dispatchEvent(new Event('automarket-auth-change'));
 
@@ -63,7 +62,14 @@ function LoginFormContent() {
         })`
       );
 
-      if (redirectParam && redirectParam.startsWith('/')) {
+      // Proteção contra Open Redirect (bloqueia //evil.com e backslashes)
+      const isSafeRelativeRedirect =
+        Boolean(redirectParam) &&
+        redirectParam!.startsWith('/') &&
+        !redirectParam!.startsWith('//') &&
+        !redirectParam!.includes('\\');
+
+      if (isSafeRelativeRedirect && redirectParam) {
         router.push(redirectParam);
       } else {
         router.push('/dashboard');

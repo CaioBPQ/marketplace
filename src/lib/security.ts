@@ -123,7 +123,7 @@ export const registroSchema = z.object({
   horarioFuncionamento: sanitized(z.string().max(200).optional()),
 });
 
-// Validação de URL de imagem (aceita URL http(s) ou Data URL de imagem segura)
+// Validação de URL de imagem (aceita URL http(s), caminho local seguro sem '//' ou Data URL segura)
 const imagemUrlOuDataUrlSchema = z
   .string()
   .max(2500000, 'Imagem muito grande.')
@@ -133,7 +133,7 @@ const imagemUrlOuDataUrlSchema = z
       if (/^data:image\/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(val)) {
         return true;
       }
-      if (val.startsWith('/')) return true;
+      if (val.startsWith('/') && !val.startsWith('//')) return true;
       try {
         const parsed = new URL(val);
         return parsed.protocol === 'https:' || parsed.protocol === 'http:';
@@ -146,7 +146,7 @@ const imagemUrlOuDataUrlSchema = z
   .optional()
   .nullable();
 
-export const veiculoSchema = z.object({
+const veiculoBaseSchema = z.object({
   marca: sanitized(z.string().min(1).max(50)),
   modelo: sanitized(z.string().min(1).max(100)),
   versao: sanitized(z.string().max(100).optional().nullable()),
@@ -179,6 +179,26 @@ export const veiculoSchema = z.object({
   descricao: sanitized(z.string().max(5000).optional().nullable()),
   opcionais: z.string().optional().nullable(),
 });
+
+export const veiculoSchema = veiculoBaseSchema.refine(
+  (data) => !data.precoPromocional || data.precoPromocional < data.preco,
+  {
+    message: 'Preço promocional deve ser menor que o preço principal.',
+    path: ['precoPromocional'],
+  }
+);
+
+export const veiculoUpdateSchema = veiculoBaseSchema.partial().refine(
+  (data) =>
+    data.precoPromocional === undefined ||
+    data.precoPromocional === null ||
+    data.preco === undefined ||
+    data.precoPromocional < data.preco,
+  {
+    message: 'Preço promocional deve ser menor que o preço principal.',
+    path: ['precoPromocional'],
+  }
+);
 
 export const leadSchema = z.object({
   nome: sanitized(z.string().min(2, 'Nome é obrigatório').max(100)),

@@ -1,15 +1,16 @@
 // ═══════════════════════════════════════════════════════════
 // Pilar 2: Camada de Integração Externa (ERP / DMS Sync)
 // Sincroniza automaticamente o catálogo de veículos a partir
-// do sistema de gestão que o cliente já utiliza (DealerNet,
-// AutoAvaliar, Linx, Syonet ou ERP próprio), evitando duplo
-// cadastro e espelhando os dados no Strapi CMS + Banco Local.
+// do sistema de gestão utilizado pela concessionária.
+// Autenticação estrita Fail-Closed + Validação Zod de payload.
 // ═══════════════════════════════════════════════════════════
 
 import crypto from 'crypto';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { isStrapiConfigured, strapiUpsertVeiculo } from '@/lib/strapi';
 import { processStrapiSocialWebhook } from '@/lib/social-automation';
+import { sanitizeString } from '@/lib/security';
 import type {
   ERPSyncEventType,
   ERPSyncLogEntry,
@@ -17,44 +18,92 @@ import type {
   ERPWebhookPayload,
 } from '@/types/index';
 
-const ERP_WEBHOOK_SECRET =
-  process.env.ERP_WEBHOOK_SECRET || 'erp-sync-secret-2026';
-
 // Histórico em memória das últimas sincronizações de ERP
 const erpSyncHistory: ERPSyncLogEntry[] = [];
 
-// ─── Validação de Segurança (Secret ou HMAC-SHA256) ───────
+const safeHttpImageUrlSchema = z
+  .string()
+  .max(2048)
+  .refine((val) => {
+    try {
+      const parsed = new URL(val);
+      return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+    } catch {
+      return false;
+    }
+  }, 'URL de imagem do ERP inválida');
+
+const erpVehicleItemSchema = z.object({
+  externalErpId: z.string().min(1).max(120),
+  placa: z.string().max(15).optional(),
+  chassi: z.string().max(30).optional(),
+  marca: z.string().min(1).max(60),
+  modelo: z.string().min(1).max(100),
+  versao: z.string().max(120).optional(),
+  ano: z.coerce.number().int().min(1900).max(new Date().getFullYear() + 2),
+  anoModelo: z.coerce.number().int().min(1900).max(new Date().getFullYear() + 2).optional(),
+  km: z.coerce.number().int().min(0).max(999999).default(0),
+  cambio: z.string().max(40).default('AUTOMATICO'),
+  combustivel: z.string().max(40).default('FLEX'),
+  categoria: z.string().max(40).default('SUV'),
+  cor: z.string().max(40).optional(),
+  portas: z.coerce.number().int().min(2).max(6).optional(),
+  motor: z.string().max(40).optional(),
+  potencia: z.string().max(30).optional(),
+  finalPlaca: z.string().max(2).optional(),
+  preco: z.coerce.number().positive(),
+  precoPromocional: z.coerce.number().positive().nullable().optional(),
+  precoCusto: z.coerce.number().nonnegative().nullable().optional(),
+  destaque: z.boolean().optional(),
+  vendido: z.boolean().optional(),
+  imagemPrincipal: safeHttpImageUrlSchema.optional(),
+  imagens: z.array(safeHttpImageUrlSchema).max(20).optional(),
+  descricao: z.string().max(5000).optional(),
+  opcionais: z.array(z.string().max(120)).max(60).optional(),
+  vendedorResponsavel: z.string().max(100).optional(),
+});
+
+export const erpWebhookPayloadSchema = z.object({
+  event: z.enum(['vehicle.upsert', 'vehicle.sold', 'vehicle.delete', 'catalog.batch_sync']),
+  sourceErp: z.string().min(2).max(100),
+  timestamp: z.string().max(64).optional(),
+  lojaCnpj: z.string().max(20).optional(),
+  data: z.union([erpVehicleItemSchema, z.array(erpVehicleItemSchema).min(1).max(100)]),
+});
+
+// ─── Validação Estrita Fail-Closed (Secret ou HMAC-SHA256) ─
 export function verifyErpWebhookSignature(
   rawBody: string,
   secretHeader?: string | null,
   hmacHeader?: string | null
 ): boolean {
-  if (!process.env.ERP_WEBHOOK_SECRET) {
-    // Em ambiente local/demo sem variável forçada, aceita o segredo padrão ou chamada de teste do painel
-    if (!secretHeader && !hmacHeader) return true;
-    if (secretHeader === ERP_WEBHOOK_SECRET || secretHeader === 'demo-erp-sync') {
-      return true;
-    }
+  const secret = process.env.ERP_WEBHOOK_SECRET;
+  if (!secret || secret.length < 16) {
+    return false;
   }
 
-  if (secretHeader && secretHeader === ERP_WEBHOOK_SECRET) {
-    return true;
+  if (secretHeader) {
+    const receivedBuf = Buffer.from(secretHeader, 'utf8');
+    const expectedBuf = Buffer.from(secret, 'utf8');
+    if (
+      receivedBuf.length === expectedBuf.length &&
+      crypto.timingSafeEqual(receivedBuf, expectedBuf)
+    ) {
+      return true;
+    }
   }
 
   if (hmacHeader) {
     const cleanSignature = hmacHeader.replace(/^sha256=/i, '');
     const expectedHmac = crypto
-      .createHmac('sha256', ERP_WEBHOOK_SECRET)
+      .createHmac('sha256', secret)
       .update(rawBody)
       .digest('hex');
 
-    try {
-      return crypto.timingSafeEqual(
-        Buffer.from(cleanSignature),
-        Buffer.from(expectedHmac)
-      );
-    } catch {
-      return false;
+    const sigBuf = Buffer.from(cleanSignature, 'utf8');
+    const expBuf = Buffer.from(expectedHmac, 'utf8');
+    if (sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf)) {
+      return true;
     }
   }
 
@@ -81,10 +130,10 @@ function normalizeCombustivel(raw?: string): string {
 
 function normalizeCategoria(raw?: string): string {
   const val = (raw || '').toUpperCase();
-  if (val.includes('PICAPE') || val.includes('PICKUP')) return 'PICAPE';
+  if (val.includes('PICAPE') || val.includes('PICKUP')) return 'PICKUP';
   if (val.includes('SEDAN') || val.includes('SEDÃ')) return 'SEDAN';
   if (val.includes('HATCH')) return 'HATCH';
-  if (val.includes('ESPORT') || val.includes('COUPE')) return 'ESPORTIVO';
+  if (val.includes('ESPORT') || val.includes('COUPE')) return 'COUPE';
   return 'SUV';
 }
 
@@ -100,7 +149,7 @@ export async function executeErpCatalogSync(
     : [payload.data];
 
   const event: ERPSyncEventType = payload.event || 'vehicle.upsert';
-  const sourceErp = payload.sourceErp || 'ERP_EXTERNO';
+  const sourceErp = sanitizeString(payload.sourceErp || 'ERP_EXTERNO');
 
   // Localiza a loja principal (ou pelo CNPJ informado pelo ERP)
   const cleanCnpj = payload.lojaCnpj ? payload.lojaCnpj.replace(/\D/g, '') : '';
@@ -122,6 +171,9 @@ export async function executeErpCatalogSync(
   for (const item of items) {
     if (!item || !item.marca || !item.modelo) continue;
 
+    const marcaLimpa = sanitizeString(item.marca);
+    const modeloLimpo = sanitizeString(item.modelo);
+
     const finalPlaca =
       item.finalPlaca ||
       (item.placa ? item.placa.replace(/[^a-zA-Z0-9]/g, '').slice(-1) : null);
@@ -130,8 +182,8 @@ export async function executeErpCatalogSync(
     const existente = await prisma.veiculo.findFirst({
       where: {
         lojaId: loja.id,
-        marca: item.marca,
-        modelo: item.modelo,
+        marca: marcaLimpa,
+        modelo: modeloLimpo,
         ano: Number(item.ano || new Date().getFullYear()),
         ...(finalPlaca ? { finalPlaca } : {}),
       },
@@ -145,8 +197,13 @@ export async function executeErpCatalogSync(
           data: {
             vendido: true,
             dataVenda: new Date(),
-            valorVenda: item.precoPromocional || item.preco || existente.preco,
-            vendidoPorNome: item.vendedorResponsavel || `Sync ${sourceErp}`,
+            valorVenda:
+              item.precoPromocional && item.precoPromocional < item.preco
+                ? item.precoPromocional
+                : item.preco || existente.preco,
+            vendidoPorNome: item.vendedorResponsavel
+              ? sanitizeString(item.vendedorResponsavel)
+              : `Sync ${sourceErp}`,
           },
         });
         soldCount += 1;
@@ -180,55 +237,69 @@ export async function executeErpCatalogSync(
 
     // 2. Evento de Cadastro ou Atualização de Estoque (Upsert)
     const imagensArray = Array.isArray(item.imagens)
-      ? item.imagens.filter(Boolean)
-      : item.imagemPrincipal
+      ? item.imagens.filter((url) => safeHttpImageUrlSchema.safeParse(url).success)
+      : item.imagemPrincipal && safeHttpImageUrlSchema.safeParse(item.imagemPrincipal).success
       ? [item.imagemPrincipal]
       : [];
 
     const imagemPrincipal =
-      item.imagemPrincipal ||
-      imagensArray[0] ||
+      (item.imagemPrincipal && safeHttpImageUrlSchema.safeParse(item.imagemPrincipal).success
+        ? item.imagemPrincipal
+        : imagensArray[0]) ||
       'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/2020_Toyota_Corolla_Hybrid_%28MZEA12R%29_Ascent_Sport_hatchback_%282020-11-04%29_01.jpg/960px-2020_Toyota_Corolla_Hybrid_%28MZEA12R%29_Ascent_Sport_hatchback_%282020-11-04%29_01.jpg';
 
+    const precoBase = Number(item.preco || 100000);
+    const precoPromo =
+      item.precoPromocional !== undefined &&
+      item.precoPromocional !== null &&
+      item.precoPromocional < precoBase
+        ? item.precoPromocional
+        : null;
+
     const dadosNormalizados = {
-      marca: item.marca.trim(),
-      modelo: item.modelo.trim(),
-      versao: item.versao?.trim() || null,
+      marca: marcaLimpa,
+      modelo: modeloLimpo,
+      versao: item.versao ? sanitizeString(item.versao) : null,
       ano: Number(item.ano || new Date().getFullYear()),
       anoModelo: Number(item.anoModelo || item.ano || new Date().getFullYear()),
       km: Number(item.km ?? 0),
       cambio: normalizeCambio(item.cambio),
       combustivel: normalizeCombustivel(item.combustivel),
       categoria: normalizeCategoria(item.categoria),
-      cor: item.cor || 'Preto',
+      cor: item.cor ? sanitizeString(item.cor) : 'Preto',
       portas: Number(item.portas || 4),
-      motor: item.motor || null,
-      potencia: item.potencia || null,
-      finalPlaca,
-      preco: Number(item.preco || 100000),
-      precoPromocional:
-        item.precoPromocional !== undefined ? item.precoPromocional : null,
+      motor: item.motor ? sanitizeString(item.motor) : null,
+      potencia: item.potencia ? sanitizeString(item.potencia) : null,
+      finalPlaca: finalPlaca ? sanitizeString(finalPlaca).slice(0, 1) : null,
+      preco: precoBase,
+      precoPromocional: precoPromo,
       precoCusto:
         item.precoCusto !== undefined && item.precoCusto !== null
           ? Number(item.precoCusto)
-          : Math.round(Number(item.preco || 100000) * 0.82),
+          : Math.round(precoBase * 0.82),
       destaque: Boolean(item.destaque),
       vendido: false,
       imagemPrincipal,
       imagens:
-        imagensArray.length > 0 ? JSON.stringify(imagensArray) : JSON.stringify([imagemPrincipal]),
-      descricao:
-        item.descricao ||
-        `Veículo sincronizado automaticamente via integração ${sourceErp} (ID Externo: ${item.externalErpId}). Periciado e disponível no showroom.`,
+        imagensArray.length > 0
+          ? JSON.stringify(imagensArray)
+          : JSON.stringify([imagemPrincipal]),
+      descricao: item.descricao
+        ? sanitizeString(item.descricao)
+        : `Veículo sincronizado automaticamente via integração ${sourceErp} (ID Externo: ${sanitizeString(
+            item.externalErpId
+          )}). Periciado e disponível no showroom.`,
       opcionais: Array.isArray(item.opcionais)
-        ? JSON.stringify(item.opcionais)
+        ? JSON.stringify(item.opcionais.map((op) => sanitizeString(op)))
         : JSON.stringify([
             'Central Multimídia',
             'Câmera de Ré',
             'Ar-Condicionado Digital',
             'Laudo Cautelar Aprovado',
           ]),
-      cadastradoPorNome: item.vendedorResponsavel || `Integração ${sourceErp}`,
+      cadastradoPorNome: item.vendedorResponsavel
+        ? sanitizeString(item.vendedorResponsavel)
+        : `Integração ${sourceErp}`,
       ativo: true,
       lojaId: loja.id,
     };
@@ -252,7 +323,6 @@ export async function executeErpCatalogSync(
 
     syncedVehicles.push(registroFinal);
 
-    // Espelha imediatamente para o servidor Strapi CMS se configurado
     if (isStrapiConfigured()) {
       const strapiRes = await strapiUpsertVeiculo(
         {
@@ -266,7 +336,6 @@ export async function executeErpCatalogSync(
       }
     }
 
-    // Dispara também a automação de posts para redes sociais ao criar ou atualizar oferta via ERP
     await processStrapiSocialWebhook({
       event: isNovo ? 'entry.create' : 'entry.update',
       model: 'api::veiculo.veiculo',

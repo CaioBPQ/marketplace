@@ -281,6 +281,16 @@ export async function strapiAuthLogin(
   });
 
   if (res && res.jwt && res.user) {
+    // Tenta popular o role do usuário no Strapi para validação de privilégio
+    if (!res.user.role) {
+      const me = await strapiFetch<StrapiAuthResponse['user']>(
+        '/api/users/me?populate=role',
+        { token: res.jwt, timeoutMs: 2500 }
+      );
+      if (me && me.role) {
+        res.user.role = me.role;
+      }
+    }
     return res;
   }
   return null;

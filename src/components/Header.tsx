@@ -41,20 +41,20 @@ export default function Header() {
 
   const syncAuthState = () => {
     try {
-      const token = localStorage.getItem('automarket-token');
       const userJson = localStorage.getItem('automarket-user');
 
-      if (!token) {
+      if (!userJson) {
         setHasToken(false);
         setUser(null);
         return;
       }
 
-      setHasToken(true);
-      if (userJson) {
-        const parsed = JSON.parse(userJson) as User;
+      const parsed = JSON.parse(userJson) as User;
+      if (parsed && parsed.role && parsed.role !== 'USUARIO') {
+        setHasToken(true);
         setUser(parsed);
       } else {
+        setHasToken(false);
         setUser(null);
       }
     } catch {
@@ -90,13 +90,14 @@ export default function Header() {
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
     } catch {
       // Prossegue com limpeza local mesmo se a requisição falhar
     } finally {
-      localStorage.removeItem('automarket-token');
       localStorage.removeItem('automarket-user');
-      document.cookie = 'automarket-token=; path=/; max-age=0';
       window.dispatchEvent(new Event('automarket-auth-change'));
       setHasToken(false);
       setUser(null);

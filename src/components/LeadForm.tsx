@@ -123,17 +123,12 @@ function SharedLeadFields({
 
     setLoading(true);
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      const token = localStorage.getItem('automarket-token');
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-
       const res = await fetch('/api/leads', {
         method: 'POST',
-        headers,
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           nome: nomeLimpo,
           email: emailLimpo,

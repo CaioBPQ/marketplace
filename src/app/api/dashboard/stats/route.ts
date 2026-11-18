@@ -69,7 +69,9 @@ export async function GET(request: NextRequest) {
         userId: payload.userId,
       };
 
-    const lojaWhere = {};
+    const lojaWhere = isAdmin
+      ? {}
+      : { lojaId: lojaDoUsuario?.id || '__none__' };
 
     // ─── Consultas principais ─────────────────────────────
     const [
@@ -183,7 +185,7 @@ export async function GET(request: NextRequest) {
         },
       }),
       prisma.loja.findMany({
-        where: { ativo: true },
+        where: isAdmin ? { ativo: true } : { id: lojaDoUsuario?.id || '__none__' },
         include: {
           user: {
             select: {

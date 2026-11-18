@@ -2,10 +2,10 @@
 // Pilar 4: Automação de Posts para Redes Sociais (Strapi Webhooks)
 // Processa gatilhos entry.create, entry.update e entry.publish
 // do Strapi CMS, formata copy editorial (Instagram, Reels,
-// Facebook e Status do WhatsApp) e dispara para fluxos externos
-// (n8n, Make, Zapier ou Meta Graph API).
+// Facebook e Status do WhatsApp) e dispara para fluxos externos.
 // ═══════════════════════════════════════════════════════════
 
+import crypto from 'crypto';
 import { normalizeStrapiVeiculo } from '@/lib/strapi';
 import type {
   SocialMediaPostPackage,
@@ -13,9 +13,6 @@ import type {
   StrapiWebhookPayload,
   Veiculo,
 } from '@/types/index';
-
-const STRAPI_WEBHOOK_SECRET =
-  process.env.STRAPI_WEBHOOK_SECRET || 'strapi-webhook-secret-2026';
 
 const SOCIAL_AUTOMATION_WEBHOOK_URL =
   process.env.SOCIAL_AUTOMATION_WEBHOOK_URL || '';
@@ -27,12 +24,21 @@ const PUBLIC_SITE_URL = (
 // Histórico em memória dos últimos pacotes de postagem gerados
 const socialPostHistory: SocialMediaPostPackage[] = [];
 
+// Verificação estrita Fail-Closed com comparação em tempo constante (timingSafeEqual)
 export function verifyStrapiWebhookToken(tokenHeader?: string | null): boolean {
-  if (!process.env.STRAPI_WEBHOOK_SECRET) {
-    // Em ambiente local/demo sem variável forçada, aceita o segredo padrão ou header de teste
-    return !tokenHeader || tokenHeader === STRAPI_WEBHOOK_SECRET || tokenHeader === 'demo-trigger';
+  const secret = process.env.STRAPI_WEBHOOK_SECRET;
+  if (!secret || secret.length < 16 || !tokenHeader) {
+    return false;
   }
-  return tokenHeader === STRAPI_WEBHOOK_SECRET;
+
+  const receivedBuf = Buffer.from(tokenHeader, 'utf8');
+  const expectedBuf = Buffer.from(secret, 'utf8');
+
+  if (receivedBuf.length !== expectedBuf.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(receivedBuf, expectedBuf);
 }
 
 function formatBRL(value: number): string {
@@ -43,9 +49,18 @@ function formatBRL(value: number): string {
   }).format(value);
 }
 
+function isSafeHttpUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 function extractMediaUrls(veiculo: Veiculo): string[] {
   const urls: string[] = [];
-  if (veiculo.imagemPrincipal) {
+  if (veiculo.imagemPrincipal && isSafeHttpUrl(veiculo.imagemPrincipal)) {
     urls.push(veiculo.imagemPrincipal);
   }
   if (veiculo.imagens) {
@@ -53,7 +68,12 @@ function extractMediaUrls(veiculo: Veiculo): string[] {
       const parsed = JSON.parse(veiculo.imagens);
       if (Array.isArray(parsed)) {
         for (const item of parsed) {
-          if (typeof item === 'string' && item && !urls.includes(item)) {
+          if (
+            typeof item === 'string' &&
+            item &&
+            isSafeHttpUrl(item) &&
+            !urls.includes(item)
+          ) {
             urls.push(item);
           }
         }
@@ -102,7 +122,7 @@ export function buildSocialMediaPostPackage(
     isOferta ? '#OfertaEspecial' : '#NovoNoEstoque',
   ];
 
-  const linkAnuncio = `${PUBLIC_SITE_URL}/veiculos/${veiculo.id}`;
+  const linkAnuncio = `${PUBLIC_SITE_URL}/veiculos/${encodeURIComponent(veiculo.id)}`;
   const mediaUrls = extractMediaUrls(veiculo);
 
   const headerHook =
@@ -170,7 +190,7 @@ export async function processStrapiSocialWebhook(
   const veiculo = normalizeStrapiVeiculo(payload.entry);
   const postPackage = buildSocialMediaPostPackage(veiculo, payload.event);
 
-  if (SOCIAL_AUTOMATION_WEBHOOK_URL) {
+  if (SOCIAL_AUTOMATION_WEBHOOK_URL && isSafeHttpUrl(SOCIAL_AUTOMATION_WEBHOOK_URL)) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 3500);
     try {

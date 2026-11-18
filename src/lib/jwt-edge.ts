@@ -5,7 +5,18 @@
 
 import type { JWTPayload } from './auth';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-me';
+const DEV_EPHEMERAL_SECRET = 'dev-only-automarket-jwt-secret-min-32-chars!';
+
+function getEdgeJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32 || secret.includes('change-in-production') || secret.includes('fallback-secret')) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CONFIG_ERROR: JWT_SECRET forte (>= 32 caracteres) é obrigatória em produção.');
+    }
+    return DEV_EPHEMERAL_SECRET;
+  }
+  return secret;
+}
 
 // Converte Base64URL para Uint8Array sem depender de Buffer do Node.js
 function base64UrlToUint8Array(base64Url: string): Uint8Array {
@@ -43,7 +54,7 @@ export async function verifyTokenEdge(token: string): Promise<JWTPayload | null>
     // Importa chave secreta para verificação HMAC-SHA256
     const key = await crypto.subtle.importKey(
       'raw',
-      encoder.encode(JWT_SECRET),
+      encoder.encode(getEdgeJwtSecret()),
       { name: 'HMAC', hash: 'SHA-256' },
       false,
       ['verify']

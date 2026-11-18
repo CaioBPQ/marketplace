@@ -118,11 +118,19 @@ export default function GitHubPagesRuntime() {
           return jsonResponse({ success: false, error: 'E-mail ou senha incorretos.' }, 401);
         }
 
-        const token = `gh_jwt_${user.id}_${Date.now()}`;
-        document.cookie = `automarket-token=${token}; path=/; max-age=604800`;
+        if (user.role === 'USUARIO') {
+          return jsonResponse(
+            {
+              success: false,
+              error: 'O login de compradores foi desativado por segurança.',
+            },
+            403
+          );
+        }
+
         return jsonResponse({
           success: true,
-          token,
+          authProvider: 'LOCAL_FALLBACK',
           user: {
             id: user.id,
             nome: user.nome,
@@ -905,6 +913,10 @@ export default function GitHubPagesRuntime() {
 
       // ─── 16. /api/integrations/status (GitHub Pages) ─────
       if (apiPath === '/api/integrations/status' && method === 'GET') {
+        const user = getCurrentUser(db);
+        if (!user || user.role === 'USUARIO') {
+          return jsonResponse({ success: false, error: 'Não autorizado.' }, 401);
+        }
         return jsonResponse({
           success: true,
           data: {
@@ -932,6 +944,49 @@ export default function GitHubPagesRuntime() {
             },
           },
         });
+      }
+
+      // ─── 17. /api/integrations/simulate (GitHub Pages) ───
+      if (apiPath === '/api/integrations/simulate' && method === 'POST') {
+        const user = getCurrentUser(db);
+        if (!user || user.role === 'USUARIO') {
+          return jsonResponse({ success: false, error: 'Não autorizado.' }, 401);
+        }
+        if (body.action === 'erp-sync') {
+          const novo = {
+            id: `gh_erp_${Date.now()}`,
+            marca: 'Toyota',
+            modelo: 'Corolla Cross',
+            versao: 'XRX Hybrid 1.8',
+            ano: 2025,
+            anoModelo: 2025,
+            km: 4200,
+            cambio: 'CVT',
+            combustivel: 'HIBRIDO',
+            categoria: 'SUV',
+            cor: 'Branco Pérola',
+            preco: 194900,
+            precoCusto: Math.round(194900 * 0.82),
+            destaque: true,
+            vendido: false,
+            ativo: true,
+            imagemPrincipal: db.veiculos[0]?.imagemPrincipal || null,
+            imagens: JSON.stringify([db.veiculos[0]?.imagemPrincipal || '']),
+            lojaId: db.lojas[0]?.id,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          db.veiculos.unshift(novo);
+          saveLocalDB(db);
+          return jsonResponse({
+            success: true,
+            message: 'Sincronização DealerNet DMS: 1 veículo sincronizado sem duplo cadastro.',
+            data: { syncedVehicles: [novo] },
+          });
+        }
+        const v = db.veiculos.find((item) => item.ativo && !item.vendido) || db.veiculos[0];
+        const pkg = buildSocialMediaPostPackage(v as any, 'entry.create');
+        return jsonResponse({ success: true, data: pkg }, 201);
       }
 
       return originalFetch(input, init);

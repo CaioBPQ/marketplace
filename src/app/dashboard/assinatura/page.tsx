@@ -74,13 +74,10 @@ function AssinaturaContent() {
   const [planoCheckout, setPlanoCheckout] = useState<PlanoCard | null>(null);
 
   const carregarLoja = useCallback(async () => {
-    const token = localStorage.getItem('automarket-token');
-    if (!token) return;
-
     setLoading(true);
     try {
       const res = await fetch('/api/lojas?minha=true', {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       const json = await res.json();
       if (res.ok && json.success && json.data) {

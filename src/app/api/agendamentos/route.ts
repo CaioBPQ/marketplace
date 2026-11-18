@@ -142,8 +142,10 @@ export async function GET(request: NextRequest) {
     const statusFiltro = searchParams.get('status') || undefined;
     const tipoFiltro = searchParams.get('tipo') || undefined;
     const lojaIdFiltro = searchParams.get('lojaId') || undefined;
-    const pagina = Math.max(1, parseInt(searchParams.get('pagina') || '1'));
-    const limite = Math.min(100, Math.max(1, parseInt(searchParams.get('limite') || '30')));
+    const paginaRaw = Number.parseInt(searchParams.get('pagina') || '1', 10);
+    const limiteRaw = Number.parseInt(searchParams.get('limite') || '30', 10);
+    const pagina = Number.isFinite(paginaRaw) ? Math.max(1, paginaRaw) : 1;
+    const limite = Number.isFinite(limiteRaw) ? Math.min(100, Math.max(1, limiteRaw)) : 30;
     const skip = (pagina - 1) * limite;
 
     const where: { lojaId?: string; status?: string; tipo?: string } = {};

@@ -1,18 +1,45 @@
 // ═══════════════════════════════════════════════════════════
 // Endpoint da IA de Atendimento ao Cliente
-// POST /api/ai/chat — Responde com contexto real do estoque
-// GET  /api/ai/chat — Status do agente e provedor ativo
+// POST /api/ai/chat — Validado com Zod contra Prompt Injection
+// e DoS financeiro; contexto real do estoque Strapi/Local.
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { strapiGetVeiculos } from '@/lib/strapi';
 import { processAIChatRequest } from '@/lib/ai-agent';
-import { checkRateLimit } from '@/lib/security';
+import { checkRateLimit, sanitizeString } from '@/lib/security';
 import { getClientIP } from '@/lib/utils';
 import type { AIChatRequest, Veiculo } from '@/types/index';
 
 export const dynamic = 'force-dynamic';
+
+const aiChatRequestSchema = z.object({
+  sessionId: z.string().max(100).optional(),
+  vehicleContext: z
+    .object({
+      id: z.string().max(64).optional(),
+      marca: z.string().max(60).optional(),
+      modelo: z.string().max(100).optional(),
+      preco: z.number().positive().optional(),
+    })
+    .nullable()
+    .optional(),
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant']), // Impede injeção de role: 'system' pelo cliente
+        content: z
+          .string()
+          .min(1, 'Mensagem vazia.')
+          .max(1000, 'Mensagem excede 1000 caracteres.')
+          .transform((val) => sanitizeString(val)),
+      })
+    )
+    .min(1, 'Envie ao menos uma mensagem.')
+    .max(20, 'Histórico de conversa excedeu o limite permitido.'),
+});
 
 export async function GET() {
   const provider = process.env.AI_AGENT_WEBHOOK_URL
@@ -49,13 +76,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = (await request.json()) as AIChatRequest;
-    if (!body || !Array.isArray(body.messages) || body.messages.length === 0) {
+    const rawBody = await request.json();
+    const parsed = aiChatRequestSchema.safeParse(rawBody);
+
+    if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: 'Envie ao menos uma mensagem no campo messages.' },
+        {
+          success: false,
+          error: parsed.error.issues[0]?.message || 'Formato de conversa inválido.',
+          detalhes: parsed.error.flatten().fieldErrors,
+        },
         { status: 400 }
       );
     }
+
+    const body: AIChatRequest = parsed.data;
 
     // Prioriza catálogo do Strapi CMS e faz fallback para o banco local
     const strapiVeiculos = await strapiGetVeiculos();

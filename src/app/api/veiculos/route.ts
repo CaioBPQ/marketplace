@@ -103,16 +103,16 @@ export async function GET(request: NextRequest) {
             combustiveis: countField('combustivel'),
             categorias: countField('categoria'),
             precoRange: {
-              min: Math.min(...disponiveis.map((v) => v.preco)),
-              max: Math.max(...disponiveis.map((v) => v.preco)),
+              min: disponiveis.length ? Math.min(...disponiveis.map((v) => v.preco)) : 0,
+              max: disponiveis.length ? Math.max(...disponiveis.map((v) => v.preco)) : 0,
             },
             anoRange: {
-              min: Math.min(...disponiveis.map((v) => v.ano)),
-              max: Math.max(...disponiveis.map((v) => v.ano)),
+              min: disponiveis.length ? Math.min(...disponiveis.map((v) => v.ano)) : 0,
+              max: disponiveis.length ? Math.max(...disponiveis.map((v) => v.ano)) : 0,
             },
             kmRange: {
-              min: Math.min(...disponiveis.map((v) => v.km)),
-              max: Math.max(...disponiveis.map((v) => v.km)),
+              min: disponiveis.length ? Math.min(...disponiveis.map((v) => v.km)) : 0,
+              max: disponiveis.length ? Math.max(...disponiveis.map((v) => v.km)) : 0,
             },
             total: disponiveis.length,
           },
@@ -148,7 +148,19 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      if (filtros.lojaId) {
+      if (payload.role === 'LOJISTA') {
+        const lojaDoUsuario = await prisma.loja.findUnique({
+          where: { userId: payload.userId },
+          select: { id: true },
+        });
+        if (!lojaDoUsuario) {
+          return NextResponse.json(
+            { success: false, error: 'Loja vinculada não encontrada.' },
+            { status: 404 }
+          );
+        }
+        where.lojaId = lojaDoUsuario.id;
+      } else if (filtros.lojaId) {
         where.lojaId = filtros.lojaId;
       }
     } else {
@@ -417,9 +429,14 @@ export async function POST(request: NextRequest) {
       imagemPrincipal,
       destaque: desejaDestaque,
       lojaId: bodyLojaId,
-      dataVenda: rawDataVenda,
-      cadastradoPorId: bodyCadastradoPorId,
+      dataVenda: _ignoreDataVenda,
+      cadastradoPorId: _ignoreCadastradoPorId,
       cadastradoPorNome: bodyCadastradoPorNome,
+      vendido: _ignoreVendido,
+      valorVenda: _ignoreValorVenda,
+      vendidoPorId: _ignoreVendidoPorId,
+      vendidoPorNome: _ignoreVendidoPorNome,
+      ativo: _ignoreAtivo,
       ...dadosVeiculo
     } = resultado.data;
 
@@ -443,39 +460,48 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ─── Regra Pilar III: destaque exige assinatura ativa e cota disponível
-    let destaquePermitido = false;
-    if (desejaDestaque && loja.assinaturaAtiva) {
-      const planoInfo = PLANOS[loja.plano as PlanoKey];
-      const limiteDestaques = planoInfo?.destaques ?? 0;
+    // ─── Transação atômica: cota de destaque + criação segura sem Mass Assignment
+    const veiculo = await prisma.$transaction(async (tx) => {
+      let destaquePermitido = false;
+      if (desejaDestaque && loja.assinaturaAtiva) {
+        const planoInfo = PLANOS[loja.plano as PlanoKey];
+        const limiteDestaques = planoInfo?.destaques ?? 0;
 
-      if (limiteDestaques > 0) {
-        const destaquesAtivos = await prisma.veiculo.count({
-          where: {
-            lojaId: loja.id,
-            ativo: true,
-            destaque: true,
-          },
-        });
-        destaquePermitido = destaquesAtivos < limiteDestaques;
+        if (limiteDestaques > 0) {
+          const destaquesAtivos = await tx.veiculo.count({
+            where: {
+              lojaId: loja.id,
+              ativo: true,
+              destaque: true,
+            },
+          });
+          destaquePermitido = destaquesAtivos < limiteDestaques;
+        }
       }
-    }
 
-    // ─── Cria o veículo com rastreio do vendedor ──────────
-    const veiculo = await prisma.veiculo.create({
-      data: {
-        ...dadosVeiculo,
-        precoCusto:
-          dadosVeiculo.precoCusto !== undefined && dadosVeiculo.precoCusto !== null
-            ? dadosVeiculo.precoCusto
-            : Math.round(dadosVeiculo.preco * 0.82),
-        dataVenda: rawDataVenda ? new Date(rawDataVenda) : null,
-        cadastradoPorId: bodyCadastradoPorId || usuario?.id || payload.userId,
-        cadastradoPorNome: bodyCadastradoPorNome || usuario?.nome || loja.nome,
-        imagemPrincipal: imagemPrincipal || null,
-        destaque: destaquePermitido,
-        lojaId: loja.id,
-      },
+      return tx.veiculo.create({
+        data: {
+          ...dadosVeiculo,
+          precoCusto:
+            dadosVeiculo.precoCusto !== undefined && dadosVeiculo.precoCusto !== null
+              ? dadosVeiculo.precoCusto
+              : Math.round(dadosVeiculo.preco * 0.82),
+          vendido: false,
+          dataVenda: null,
+          valorVenda: null,
+          vendidoPorId: null,
+          vendidoPorNome: null,
+          cadastradoPorId: usuario?.id || payload.userId,
+          cadastradoPorNome:
+            payload.role === 'ADMIN' && bodyCadastradoPorNome
+              ? bodyCadastradoPorNome
+              : usuario?.nome || loja.nome,
+          imagemPrincipal: imagemPrincipal || null,
+          destaque: destaquePermitido,
+          ativo: true,
+          lojaId: loja.id,
+        },
+      });
     });
 
     // Sincroniza com Strapi CMS e dispara automação de postagem social

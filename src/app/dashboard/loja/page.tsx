@@ -79,9 +79,6 @@ export default function DashboardLojaPage() {
   const [horarioFuncionamento, setHorarioFuncionamento] = useState('');
 
   const carregarDados = useCallback(async () => {
-    const token = localStorage.getItem('automarket-token');
-    if (!token) return;
-
     const localBrand = lerBrandLocal();
     setSlogan(localBrand.slogan);
     setTema(localBrand.tema);
@@ -90,7 +87,7 @@ export default function DashboardLojaPage() {
     setLoading(true);
     try {
       const resLoja = await fetch('/api/lojas?minha=true', {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
 
       if (resLoja.ok) {
@@ -146,16 +143,13 @@ export default function DashboardLojaPage() {
 
   const handleSalvarLoja = async (e: React.FormEvent) => {
     e.preventDefault();
-    const token = localStorage.getItem('automarket-token');
-    if (!token) return;
-
     setSalvando(true);
     try {
       const res = await fetch('/api/lojas', {
         method: 'PUT',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           id: loja?.id,

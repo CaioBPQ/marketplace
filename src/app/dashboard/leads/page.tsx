@@ -32,9 +32,6 @@ export default function DashboardLeadsPage() {
   const [atualizandoId, setAtualizandoId] = useState<string | null>(null);
 
   const carregarLeads = useCallback(async () => {
-    const token = localStorage.getItem('automarket-token');
-    if (!token) return;
-
     setLoading(true);
     try {
       const query =
@@ -42,7 +39,7 @@ export default function DashboardLeadsPage() {
           ? `?status=${statusFiltro}&limite=50`
           : '?limite=50';
       const res = await fetch(`/api/leads${query}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       const json = await res.json();
       if (res.ok && json.success && Array.isArray(json.data)) {
@@ -62,16 +59,13 @@ export default function DashboardLeadsPage() {
   }, [carregarLeads]);
 
   const handleAlterarStatus = async (leadId: string, novoStatus: string) => {
-    const token = localStorage.getItem('automarket-token');
-    if (!token) return;
-
     setAtualizandoId(leadId);
     try {
       const res = await fetch('/api/leads', {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ id: leadId, status: novoStatus }),
       });

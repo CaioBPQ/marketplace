@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ServiceCard from '@/components/ServiceCard';
+import { useCompanyBrand } from '@/lib/company-brand';
 import { Servico } from '@/types';
 import { formatarPreco } from '@/lib/utils';
 import {
@@ -109,6 +110,7 @@ const PLANOS_MOVE = [
 ];
 
 export default function ServicosPage() {
+  const brand = useCompanyBrand();
   const [servicos, setServicos] = useState<(Servico & { loja?: { nome: string } })[]>([]);
   const [loading, setLoading] = useState(true);
   const [categoriaAtiva, setCategoriaAtiva] = useState('TODOS');
@@ -213,7 +215,7 @@ export default function ServicosPage() {
             <div className="max-w-3xl">
               <span className="eyebrow inline-flex items-center gap-2 text-bronze-300 mb-3">
                 <Wrench className="w-3.5 h-3.5" />
-                Ecossistema Pós-Venda AutoMarket
+                Ecossistema Pós-Venda {brand.nome}
               </span>
               <h1 className="text-4xl sm:text-5xl font-serif font-semibold leading-tight">
                 Serviços, Revisões &amp; Assistência
@@ -428,7 +430,7 @@ export default function ServicosPage() {
               Carro por Assinatura
             </span>
             <h2 className="text-3xl sm:text-4xl font-serif font-semibold text-ink">
-              AutoMarket Move: Mobilidade sem imobilizar capital
+              {brand.nome} Move: Mobilidade sem imobilizar capital
             </h2>
             <p className="text-ink-secondary text-sm mt-2">
               IPVA, seguro completo, documentação e revisões já incluídos em uma única mensalidade previsível.
@@ -505,14 +507,14 @@ export default function ServicosPage() {
                 </div>
 
                 <a
-                  href={`https://wa.me/5527999999999?text=${encodeURIComponent(
-                    `Olá! Tenho interesse no programa AutoMarket Move - Plano ${plano.nome}.`
+                  href={`https://wa.me/${(brand.whatsapp || '5527998345027').replace(/\D/g, '')}?text=${encodeURIComponent(
+                    `Olá! Tenho interesse no programa ${brand.nome} Move - Plano ${plano.nome}.`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-editorial font-semibold text-xs uppercase tracking-[0.14em] transition-colors ${
                     plano.destaque
-                      ? 'bg-bronze-500 hover:bg-bronze-400 text-canvas'
+                      ? 'btn-brand-primary font-bold'
                       : 'bg-obsidian hover:bg-bronze-500 text-canvas'
                   }`}
                 >

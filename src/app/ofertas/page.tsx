@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import VehicleCard from '@/components/VehicleCard';
+import { useCompanyBrand } from '@/lib/company-brand';
 import { Veiculo } from '@/types';
 import { formatarPreco } from '@/lib/utils';
 import {
@@ -19,6 +20,7 @@ import {
 } from 'lucide-react';
 
 export default function OfertasPage() {
+  const brand = useCompanyBrand();
   const [ofertas, setOfertas] = useState<Veiculo[]>([]);
   const [loading, setLoading] = useState(true);
   const [valorVeiculoSim, setValorVeiculoSim] = useState(100000);
@@ -62,7 +64,7 @@ export default function OfertasPage() {
             <div className="max-w-3xl">
               <span className="eyebrow inline-flex items-center gap-2 text-bronze-300 mb-3">
                 <Tag className="w-3.5 h-3.5" />
-                Curadoria Promocional AutoMarket
+                Curadoria Promocional {brand.nome}
               </span>
               <h1 className="text-4xl sm:text-5xl font-serif font-semibold leading-tight">
                 Ofertas Especiais Selecionadas

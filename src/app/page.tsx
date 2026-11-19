@@ -7,6 +7,7 @@ import Footer from '@/components/Footer';
 import HeroBanner from '@/components/HeroBanner';
 import VehicleCard from '@/components/VehicleCard';
 import ServiceCard from '@/components/ServiceCard';
+import { useCompanyBrand } from '@/lib/company-brand';
 import { Veiculo, Servico } from '@/types';
 import {
   Shield,
@@ -87,6 +88,7 @@ const PILARES = [
 ];
 
 export default function HomePage() {
+  const brand = useCompanyBrand();
   const [destaques, setDestaques] = useState<Veiculo[]>([]);
   const [ofertas, setOfertas] = useState<Veiculo[]>([]);
   const [servicos, setServicos] = useState<(Servico & { loja?: { nome: string } })[]>([]);
@@ -369,9 +371,9 @@ export default function HomePage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-10 mb-12 border-b border-obsidian-border">
               <div>
-                <span className="eyebrow text-bronze-300">Padrão de Excelência</span>
+                <span className="eyebrow text-bronze-300">Padrão de Excelência • {brand.cidade}/{brand.estado}</span>
                 <h2 className="text-3xl sm:text-4xl font-serif font-semibold mt-2">
-                  Por que escolher o AutoMarket
+                  Por que escolher a {brand.nome}
                 </h2>
               </div>
               <p className="text-sm text-[#A39D92] max-w-md">
@@ -450,10 +452,10 @@ export default function HomePage() {
           <div className="relative overflow-hidden rounded-card border border-obsidian-border bg-obsidian p-8 sm:p-14 text-canvas">
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute right-0 top-0 w-96 h-96 opacity-20"
+              className="pointer-events-none absolute right-0 top-0 w-96 h-96 opacity-40"
               style={{
                 background:
-                  'radial-gradient(circle, rgba(207, 175, 130, 0.45) 0%, transparent 70%)',
+                  'radial-gradient(circle, var(--brand-glow-color) 0%, transparent 70%)',
               }}
             />
             <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-10">
@@ -486,7 +488,7 @@ export default function HomePage() {
               <div className="flex flex-col sm:flex-row gap-3 shrink-0">
                 <Link
                   href="/concessionarias"
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-editorial bg-bronze-500 hover:bg-bronze-400 text-canvas font-semibold text-xs uppercase tracking-[0.14em] transition-colors"
+                  className="btn-brand-primary inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-editorial font-bold text-xs uppercase tracking-[0.14em]"
                 >
                   Agendar Visita no Showroom
                   <ArrowRight className="w-4 h-4" />

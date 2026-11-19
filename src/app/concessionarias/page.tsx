@@ -5,6 +5,7 @@ import Link from 'next/link';
 import toast from 'react-hot-toast';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { useCompanyBrand } from '@/lib/company-brand';
 import {
   MapPin,
   Phone,
@@ -38,6 +39,7 @@ interface LojaPublica {
 }
 
 export default function ConcessionariasPage() {
+  const brand = useCompanyBrand();
   const [lojas, setLojas] = useState<LojaPublica[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
@@ -204,7 +206,7 @@ export default function ConcessionariasPage() {
               {lojasFiltradas.map((loja) => {
                 const whatsappLimpo = loja.whatsapp.replace(/\D/g, '');
                 const waUrl = `https://wa.me/${whatsappLimpo}?text=${encodeURIComponent(
-                  `Olá! Vi a loja ${loja.nome} no AutoMarket e gostaria de falar com um consultor.`
+                  `Olá! Vi a loja ${loja.nome} na ${brand.nome} e gostaria de falar com um consultor.`
                 )}`;
 
                 return (

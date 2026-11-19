@@ -6,8 +6,11 @@ import InteractiveSalesDashboard from '@/components/InteractiveSalesDashboard';
 import {
   AESTHETIC_THEMES,
   AestheticThemeKey,
+  aplicarPresetMarca,
+  BrandPresetId,
   lerBrandLocal,
   salvarBrandLocal,
+  useBrandSwitcher,
 } from '@/lib/company-brand';
 import { Loja } from '@/types';
 import {
@@ -55,6 +58,7 @@ function redimensionarLogo(file: File): Promise<string> {
 
 export default function DashboardLojaPage() {
   const logoInputRef = useRef<HTMLInputElement | null>(null);
+  const { activePresetId } = useBrandSwitcher();
 
   const [loja, setLoja] = useState<Loja | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,9 +66,9 @@ export default function DashboardLojaPage() {
 
   const [nome, setNome] = useState('');
   const [slogan, setSlogan] = useState(
-    'Showroom Multimarcas & Seminovos Periciados'
+    'Seminovos Selecionados • Linhares - ES'
   );
-  const [tema, setTema] = useState<AestheticThemeKey>('BRONZE_EDITORIAL');
+  const [tema, setTema] = useState<AestheticThemeKey>('RODRIGO_NEON_GREEN');
   const [logoUrl, setLogoUrl] = useState('');
   const [cnpj, setCnpj] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -139,6 +143,24 @@ export default function DashboardLojaPage() {
     setTema(novoTema);
     salvarBrandLocal({ tema: novoTema });
     toast.success(`Estética "${AESTHETIC_THEMES[novoTema].nome}" aplicada!`);
+  };
+
+  const handleTrocarPresetWhiteLabel = (presetId: BrandPresetId) => {
+    const applied = aplicarPresetMarca(presetId);
+    setNome(applied.nome);
+    setSlogan(applied.slogan);
+    setTema(applied.tema);
+    setLogoUrl(applied.logoUrl);
+    setEndereco(applied.endereco);
+    setCidade(applied.cidade);
+    setEstado(applied.estado);
+    setCep(applied.cep);
+    setTelefone(applied.telefone);
+    setWhatsapp(applied.whatsapp);
+    setEmail(applied.email);
+    setHorarioFuncionamento(applied.horarioFuncionamento);
+    setDescricao(applied.descricao);
+    toast.success(`Preset White-Label "${applied.nome}" ativado!`);
   };
 
   const handleSalvarLoja = async (e: React.FormEvent) => {
@@ -250,21 +272,46 @@ export default function DashboardLojaPage() {
           </div>
         </div>
 
-        {/* Seletor de Paleta / Tema Estético da Empresa */}
-        <div className="rounded-card bg-canvas border border-hairline p-5 space-y-4">
-          <div className="flex items-center justify-between">
+        {/* Seletor Rápido de Preset White-Label + Paleta Estética */}
+        <div className="rounded-card bg-canvas border border-hairline p-5 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-hairline">
             <div>
               <span className="eyebrow text-bronze-600 inline-flex items-center gap-1.5">
                 <Sparkles className="w-3 h-3" />
-                Tema Estético do Template
+                Presença White-Label Dinâmica
               </span>
               <h3 className="font-serif font-semibold text-xl text-ink mt-0.5">
-                Paleta de Destaque da Marca
+                Perfis Prontos de Cliente &amp; Paleta da Marca
               </h3>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => handleTrocarPresetWhiteLabel('rodrigo-veiculos')}
+                className={`px-3.5 py-2 rounded-editorial text-xs font-bold uppercase tracking-wider border transition-all ${
+                  activePresetId === 'rodrigo-veiculos'
+                    ? 'badge-brand-vibrant shadow-sm'
+                    : 'bg-surface border-hairline text-ink hover:border-ink'
+                }`}
+              >
+                Rodrigo Veículos (Linhares-ES)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTrocarPresetWhiteLabel('default')}
+                className={`px-3.5 py-2 rounded-editorial text-xs font-semibold uppercase tracking-wider border transition-all ${
+                  activePresetId === 'default'
+                    ? 'bg-obsidian text-canvas border-obsidian'
+                    : 'bg-surface border-hairline text-ink hover:border-ink'
+                }`}
+              >
+                AutoMarket (Padrão)
+              </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
             {(Object.values(AESTHETIC_THEMES) as (typeof AESTHETIC_THEMES)[AestheticThemeKey][]).map(
               (item) => {
                 const ativo = tema === item.key;

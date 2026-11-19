@@ -259,7 +259,7 @@ export default function VehicleCard({
             </span>
           )}
           {temPromocao && (
-            <span className="inline-flex items-center gap-1 rounded-editorial bg-bronze-500 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-canvas">
+            <span className="badge-brand-vibrant inline-flex items-center gap-1 rounded-editorial px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em]">
               <Tag className="h-2.5 w-2.5" />
               Oferta {percentualDesconto > 0 ? `-${percentualDesconto}%` : ''}
             </span>

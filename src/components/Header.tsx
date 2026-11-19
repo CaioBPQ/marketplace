@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Car,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -12,6 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import BrandLogo from '@/components/BrandLogo';
 import { useCompanyBrand } from '@/lib/company-brand';
 import type { User } from '@/types/index';
 
@@ -112,28 +112,13 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-hairline bg-canvas/92 backdrop-blur-xl transition-colors duration-300 ease-editorial">
       <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between gap-6 px-4 sm:px-6 lg:px-8">
-        {/* Marca Editorial Personalizável */}
+        {/* Marca White-Label Dinâmica */}
         <Link
           href="/"
-          className="group flex shrink-0 items-center gap-3 focus:outline-none"
+          aria-label={brand.nome}
+          className="group flex shrink-0 items-center focus:outline-none"
         >
-          {brand.logoUrl ? (
-            <img
-              src={brand.logoUrl}
-              alt={brand.nome}
-              className="h-9 w-9 rounded-editorial object-cover border border-hairline"
-            />
-          ) : (
-            <span
-              className="flex h-9 w-9 items-center justify-center rounded-editorial border border-obsidian bg-obsidian text-canvas transition-colors duration-300"
-              style={{ color: 'var(--accent-bronze-light)' }}
-            >
-              <Car className="h-4 w-4" />
-            </span>
-          )}
-          <span className="font-serif text-2xl font-semibold tracking-tight text-ink">
-            {brand.nome}
-          </span>
+          <BrandLogo variant="light" size="md" showLocationBadge />
         </Link>
 
         {/* Navegação Desktop */}

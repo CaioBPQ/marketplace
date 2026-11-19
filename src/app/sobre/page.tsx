@@ -1,6 +1,9 @@
+'use client';
+
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { useCompanyBrand } from '@/lib/company-brand';
 import {
   Target,
   Eye,
@@ -47,6 +50,7 @@ const PARCEIROS = [
 ];
 
 export default function SobrePage() {
+  const brand = useCompanyBrand();
   return (
     <div className="min-h-screen flex flex-col bg-canvas">
       <Header />
@@ -60,7 +64,7 @@ export default function SobrePage() {
                 Manifesto Institucional &amp; ESG
               </span>
               <h1 className="text-4xl sm:text-5xl font-serif font-semibold leading-tight">
-                Sobre o AutoMarket
+                Sobre a {brand.nome}
               </h1>
               <p className="text-[#B8B2A6] text-base sm:text-lg mt-4 leading-relaxed">
                 Conectamos pessoas e lojas de revenda de confiança por meio de curadoria rigorosa, segurança jurídica e compromisso real com o futuro da mobilidade sustentável no Brasil.

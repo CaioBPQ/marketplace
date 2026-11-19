@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useCompanyBrand } from '@/lib/company-brand';
+import BrandLogo from '@/components/BrandLogo';
 import { User, Loja } from '@/types';
 import {
   LayoutDashboard,
@@ -128,26 +129,8 @@ export default function DashboardLayout({
         }`}
       >
         <div className="h-[72px] px-5 flex items-center justify-between border-b border-obsidian-border">
-          <Link href="/" className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-editorial border border-obsidian-border bg-obsidian-soft text-bronze-300 flex items-center justify-center shrink-0 overflow-hidden">
-              {brand.logoUrl ? (
-                <img
-                  src={brand.logoUrl}
-                  alt={brand.nome}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <Car className="w-4 h-4" />
-              )}
-            </div>
-            <div className="min-w-0">
-              <span className="font-serif font-semibold text-lg tracking-tight block leading-none truncate">
-                {brand.nome}
-              </span>
-              <span className="text-[9px] text-[#8C867B] uppercase tracking-[0.18em]">
-                Gestão da Empresa
-              </span>
-            </div>
+          <Link href="/" className="flex items-center min-w-0">
+            <BrandLogo variant="dark" size="sm" />
           </Link>
 
           <button

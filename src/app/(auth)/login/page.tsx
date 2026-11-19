@@ -4,8 +4,8 @@ import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
+import BrandLogo from '@/components/BrandLogo';
 import {
-  Car,
   Mail,
   Lock,
   Loader2,
@@ -91,14 +91,9 @@ function LoginFormContent() {
     <div className="min-h-screen bg-obsidian flex flex-col justify-center items-center p-4 sm:p-6">
       <Link
         href="/"
-        className="inline-flex items-center gap-3 text-canvas mb-7 group"
+        className="inline-flex items-center text-canvas mb-7 group"
       >
-        <div className="w-10 h-10 rounded-editorial border border-obsidian-border bg-obsidian-soft text-bronze-300 flex items-center justify-center transition-colors group-hover:border-bronze-400">
-          <Car className="w-5 h-5" />
-        </div>
-        <span className="text-2xl font-serif font-semibold tracking-tight">
-          Auto<span className="italic text-bronze-300">Market</span>
-        </span>
+        <BrandLogo variant="dark" size="lg" />
       </Link>
 
       <div className="w-full max-w-md bg-surface rounded-card border border-hairline p-7 sm:p-9">

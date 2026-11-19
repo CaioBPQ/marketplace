@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import BrandLogo from '@/components/BrandLogo';
 import { useCompanyBrand } from '@/lib/company-brand';
 import {
-  Car,
   Clock,
   Facebook,
   Instagram,
@@ -23,33 +23,20 @@ export default function Footer() {
     <footer className="border-t border-obsidian-border bg-obsidian text-canvas">
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-10 border-b border-obsidian-border pb-14 sm:grid-cols-2 lg:grid-cols-4">
-          {/* Coluna 1: Marca Editorial e Redes Sociais */}
+          {/* Coluna 1: Marca White-Label e Redes Sociais */}
           <div className="space-y-5">
-            <Link href="/" className="inline-flex items-center gap-3">
-              {brand.logoUrl ? (
-                <img
-                  src={brand.logoUrl}
-                  alt={brand.nome}
-                  className="h-9 w-9 rounded-editorial object-cover border border-obsidian-border"
-                />
-              ) : (
-                <span className="flex h-9 w-9 items-center justify-center rounded-editorial border border-obsidian-border bg-obsidian-soft text-bronze-300">
-                  <Car className="h-4 w-4" />
-                </span>
-              )}
-              <span className="font-serif text-2xl font-semibold tracking-tight text-canvas">
-                {brand.nome}
-              </span>
+            <Link href="/" aria-label={brand.nome} className="inline-flex items-center">
+              <BrandLogo variant="dark" size="md" />
             </Link>
             <p className="text-sm leading-relaxed text-[#A39D92]">
               {brand.descricao}
             </p>
             <div className="flex items-center gap-2.5 pt-1">
               {[
-                { href: 'https://instagram.com', label: 'Instagram AutoMarket', Icon: Instagram },
-                { href: 'https://facebook.com', label: 'Facebook AutoMarket', Icon: Facebook },
-                { href: 'https://youtube.com', label: 'YouTube AutoMarket', Icon: Youtube },
-                { href: 'https://linkedin.com', label: 'LinkedIn AutoMarket', Icon: Linkedin },
+                { href: 'https://instagram.com', label: `Instagram ${brand.nome}`, Icon: Instagram },
+                { href: 'https://facebook.com', label: `Facebook ${brand.nome}`, Icon: Facebook },
+                { href: 'https://youtube.com', label: `YouTube ${brand.nome}`, Icon: Youtube },
+                { href: 'https://linkedin.com', label: `LinkedIn ${brand.nome}`, Icon: Linkedin },
               ].map(({ href, label, Icon }) => (
                 <a
                   key={label}

@@ -45,13 +45,13 @@ export default function HeroBanner() {
 
   return (
     <section className="relative overflow-hidden border-b border-obsidian-border bg-obsidian text-canvas">
-      {/* Atmosfera sutil bronze / carvão (Avantgarde aesthetic) */}
+      {/* Atmosfera dinâmica controlada por CSS Variable (--brand-glow-color) */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
         style={{
           backgroundImage:
-            'radial-gradient(ellipse 65% 55% at 50% 0%, rgba(154, 107, 59, 0.18), transparent 70%), linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px)',
+            'radial-gradient(ellipse 65% 55% at 50% 0%, var(--brand-glow-color), transparent 70%), linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px)',
           backgroundSize: '100% 100%, 72px 72px, 72px 72px',
         }}
       />
@@ -135,11 +135,11 @@ export default function HeroBanner() {
               </select>
             </div>
 
-            {/* Botão Buscar */}
+            {/* Botão Buscar Dinâmico */}
             <div className="md:col-span-2">
               <button
                 type="submit"
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-editorial bg-obsidian px-4 text-xs font-semibold uppercase tracking-[0.14em] text-canvas transition-colors duration-300 ease-editorial hover:bg-bronze-500"
+                className="btn-brand-primary flex h-12 w-full items-center justify-center gap-2 rounded-editorial px-4 text-xs font-bold uppercase tracking-[0.14em]"
               >
                 Buscar
                 <ArrowRight className="h-3.5 w-3.5" />

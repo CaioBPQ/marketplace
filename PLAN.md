@@ -101,6 +101,11 @@ Refatorar a arquitetura do projeto **AutoMarket** mantendo 100% do objetivo de p
   - *Agente Responsável:* Conselho dos Anciões (Auditor)
   - *Comando de Validação:* `npm run build`
 
+- [x] **Tarefa 8 (Sistema White-Label Dinâmico — Rodrigo Veículos Linhares/ES):** Refatorar design tokens em `globals.css` e `tailwind.config.ts` via CSS Variables reativas (`[data-brand='rodrigo-veiculos']` como padrão inicial e `[data-brand='default']` para AutoMarket), salvar logotipo oficial (`public/images/logo-rodrigo-veiculos.png` e `public/brands/rodrigo-veiculos-logo.png`), criar `<BrandLogo />` vetorial + `<BrandThemeSwitcher />` flutuante no canto inferior esquerdo com persistência em `localStorage` e query string (`?brand=rodrigo` / `?brand=default`), e integrar presets em todas as páginas públicas, header, footer, cards, IA concierge e `/dashboard/loja`.
+  - *Arquivos:* `src/app/globals.css`, `tailwind.config.ts`, `src/lib/company-brand.ts`, `src/components/BrandLogo.tsx`, `src/components/BrandThemeSwitcher.tsx`, `src/app/layout.tsx`, `src/components/Header.tsx`, `src/components/Footer.tsx`, `src/components/HeroBanner.tsx`, `src/components/VehicleCard.tsx`, `src/components/AIAssistantWidget.tsx`, `src/app/page.tsx`, `src/app/ofertas/page.tsx`, `src/app/sobre/page.tsx`, `src/app/servicos/page.tsx`, `src/app/concessionarias/page.tsx`, `src/app/(auth)/login/page.tsx`, `src/app/dashboard/layout.tsx`, `src/app/dashboard/loja/page.tsx`
+  - *Agente Responsável:* Engenheiro Front-end / Construtor Principal
+  - *Comando de Validação:* `npx tsc --noEmit && npm run build`
+
 ---
 
 ## 4. Parecer do Conselho dos Anciões (Preenchido por: Claude Opus 5.5)

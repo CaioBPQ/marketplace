@@ -9,70 +9,76 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Tokens Semânticos do Design System Editorial (Avantgarde + Yonobi + Sunday in Brooklyn)
-        canvas: '#F6F4EF',      // Alabastro / Off-white mineral quente
-        surface: '#FDFCF9',     // Papel marfim para cards e superfícies elevadas
-        stone: '#EDE9E0',       // Pedra suave para superfícies secundárias e inputs
-        hairline: '#DED9CE',    // Divisórias estruturais sutis de 1px
+        // Tokens Semânticos Reativos via CSS Variables (White-Label Dinâmico)
+        canvas: 'rgb(var(--canvas-rgb) / <alpha-value>)',
+        surface: 'rgb(var(--surface-rgb) / <alpha-value>)',
+        stone: 'rgb(var(--stone-rgb) / <alpha-value>)',
+        hairline: 'rgb(var(--hairline-rgb) / <alpha-value>)',
         obsidian: {
-          DEFAULT: '#121211',   // Carvão profundo para contrastes editoriais
-          soft: '#1B1A18',      // Superfície elevada escura
-          border: '#2D2B27',    // Divisória sutil em fundos escuros
+          DEFAULT: 'rgb(var(--obsidian-rgb) / <alpha-value>)',
+          soft: 'rgb(var(--obsidian-soft-rgb) / <alpha-value>)',
+          border: 'rgb(var(--obsidian-border-rgb) / <alpha-value>)',
         },
         ink: {
-          DEFAULT: '#161513',   // Texto principal alto contraste suave
-          secondary: '#5B564E', // Texto secundário quente
-          muted: '#8C867B',     // Metadados e labels discretos
+          DEFAULT: 'rgb(var(--ink-rgb) / <alpha-value>)',
+          secondary: 'rgb(var(--ink-secondary-rgb) / <alpha-value>)',
+          muted: 'rgb(var(--ink-muted-rgb) / <alpha-value>)',
         },
         bronze: {
-          50: '#FAF6F0',
-          100: '#F2E9DA',
-          200: '#E2CEB0',
-          300: '#CFAF82',
-          400: '#BC9058',
-          500: '#9A6B3B',       // Acento principal contido (Bronze / Terracota nobre)
-          600: '#7D542B',
-          700: '#624020',
-          800: '#4A3018',
-          900: '#332010',
+          50: 'rgb(var(--accent-50-rgb) / <alpha-value>)',
+          100: 'rgb(var(--accent-100-rgb) / <alpha-value>)',
+          200: 'rgb(var(--accent-200-rgb) / <alpha-value>)',
+          300: 'rgb(var(--accent-300-rgb) / <alpha-value>)',
+          400: 'rgb(var(--accent-400-rgb) / <alpha-value>)',
+          500: 'rgb(var(--accent-500-rgb) / <alpha-value>)',
+          600: 'rgb(var(--accent-600-rgb) / <alpha-value>)',
+          700: 'rgb(var(--accent-700-rgb) / <alpha-value>)',
+          800: 'rgb(var(--accent-800-rgb) / <alpha-value>)',
+          900: 'rgb(var(--accent-900-rgb) / <alpha-value>)',
         },
         sage: {
-          50: '#F2F6F3',
-          100: '#E0EAE3',
-          600: '#2E5A44',
-          700: '#214433',
-          800: '#183326',
+          50: 'rgb(var(--sage-50-rgb) / <alpha-value>)',
+          100: 'rgb(var(--sage-100-rgb) / <alpha-value>)',
+          600: 'rgb(var(--sage-600-rgb) / <alpha-value>)',
+          700: 'rgb(var(--sage-700-rgb) / <alpha-value>)',
+          800: 'rgb(var(--sage-800-rgb) / <alpha-value>)',
         },
-        // Mapeamento compatível dos tokens primary/accent para coesão total
+        brand: {
+          primary: 'var(--brand-primary)',
+          hover: 'var(--brand-primary-hover)',
+          dark: 'var(--brand-surface-dark)',
+          'dark-soft': 'var(--brand-surface-dark-soft)',
+          'on-primary': 'var(--brand-text-on-primary)',
+        },
         primary: {
-          50: '#F6F4EF',
-          100: '#EDE9E0',
-          200: '#DED9CE',
-          300: '#C4BEB0',
-          400: '#8C867B',
-          500: '#5B564E',
-          600: '#3D3A34',
-          700: '#2A2824',
-          800: '#1E1D1A',
-          900: '#161513',
-          950: '#121211',
+          50: 'rgb(var(--canvas-rgb) / <alpha-value>)',
+          100: 'rgb(var(--stone-rgb) / <alpha-value>)',
+          200: 'rgb(var(--hairline-rgb) / <alpha-value>)',
+          300: 'rgb(var(--ink-muted-rgb) / <alpha-value>)',
+          400: 'rgb(var(--ink-muted-rgb) / <alpha-value>)',
+          500: 'rgb(var(--ink-secondary-rgb) / <alpha-value>)',
+          600: 'rgb(var(--ink-secondary-rgb) / <alpha-value>)',
+          700: 'rgb(var(--obsidian-border-rgb) / <alpha-value>)',
+          800: 'rgb(var(--obsidian-soft-rgb) / <alpha-value>)',
+          900: 'rgb(var(--ink-rgb) / <alpha-value>)',
+          950: 'rgb(var(--obsidian-rgb) / <alpha-value>)',
         },
         accent: {
-          50: '#FAF6F0',
-          100: '#F2E9DA',
-          200: '#E2CEB0',
-          300: '#CFAF82',
-          400: '#BC9058',
-          500: '#9A6B3B',
-          600: '#7D542B',
-          700: '#624020',
-          800: '#4A3018',
-          900: '#332010',
+          50: 'rgb(var(--accent-50-rgb) / <alpha-value>)',
+          100: 'rgb(var(--accent-100-rgb) / <alpha-value>)',
+          200: 'rgb(var(--accent-200-rgb) / <alpha-value>)',
+          300: 'rgb(var(--accent-300-rgb) / <alpha-value>)',
+          400: 'rgb(var(--accent-400-rgb) / <alpha-value>)',
+          500: 'rgb(var(--accent-500-rgb) / <alpha-value>)',
+          600: 'rgb(var(--accent-600-rgb) / <alpha-value>)',
+          700: 'rgb(var(--accent-700-rgb) / <alpha-value>)',
+          800: 'rgb(var(--accent-800-rgb) / <alpha-value>)',
+          900: 'rgb(var(--accent-900-rgb) / <alpha-value>)',
         },
         success: {
-          50: '#F2F6F3',
-          500: '#2E5A44',
-          700: '#214433',
+          50: 'rgb(var(--sage-50-rgb) / <alpha-value>)',
+          500: 'rgb(var(--sage-600-rgb) / <alpha-value>)',
+          700: 'rgb(var(--sage-700-rgb) / <alpha-value>)',
         },
         danger: {
           50: '#FBF2F2',
@@ -82,8 +88,8 @@ const config: Config = {
       },
       fontFamily: {
         sans: ['var(--font-sans)', 'Plus Jakarta Sans', 'system-ui', 'sans-serif'],
-        display: ['var(--font-serif)', 'Cormorant Garamond', 'Georgia', 'serif'],
-        serif: ['var(--font-serif)', 'Cormorant Garamond', 'Georgia', 'serif'],
+        display: ['var(--font-heading)', 'Montserrat', 'Cormorant Garamond', 'serif'],
+        serif: ['var(--font-heading)', 'Montserrat', 'Cormorant Garamond', 'serif'],
         mono: ['var(--font-mono)', 'JetBrains Mono', 'monospace'],
       },
       borderRadius: {

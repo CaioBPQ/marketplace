@@ -12,6 +12,7 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
+import { useCompanyBrand } from '@/lib/company-brand';
 import type { AIChatMessage, AIChatResponse } from '@/types/index';
 
 const INITIAL_MESSAGE: AIChatMessage = {
@@ -38,6 +39,7 @@ function formatBRL(value: number): string {
 
 export default function AIAssistantWidget() {
   const pathname = usePathname();
+  const brand = useCompanyBrand();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -143,7 +145,7 @@ export default function AIAssistantWidget() {
       {open && (
         <div
           role="dialog"
-          aria-label="Concierge IA AutoMarket"
+          aria-label={`Concierge IA ${brand.nome}`}
           className="mb-3 w-[calc(100vw-2.5rem)] sm:w-[390px] h-[510px] max-h-[75vh] bg-surface border border-hairline rounded-card shadow-2xl flex flex-col overflow-hidden animate-fade-in"
         >
           {/* Cabeçalho */}
@@ -154,7 +156,7 @@ export default function AIAssistantWidget() {
               </div>
               <div>
                 <h3 className="font-serif text-base font-semibold leading-tight text-canvas">
-                  Concierge IA AutoMarket
+                  Concierge IA {brand.nome}
                 </h3>
                 <p className="text-[10px] uppercase tracking-[0.14em] text-bronze-300 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />

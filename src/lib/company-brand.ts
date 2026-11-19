@@ -1,8 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+
+export type BrandPresetId = 'default' | 'rodrigo-veiculos';
 
 export type AestheticThemeKey =
+  | 'RODRIGO_NEON_GREEN'
   | 'BRONZE_EDITORIAL'
   | 'GOLD_IMPERIAL'
   | 'EMERALD_RACING'
@@ -19,9 +22,17 @@ export interface AestheticThemeInfo {
 }
 
 export const AESTHETIC_THEMES: Record<AestheticThemeKey, AestheticThemeInfo> = {
+  RODRIGO_NEON_GREEN: {
+    key: 'RODRIGO_NEON_GREEN',
+    nome: 'Rodrigo Veículos (Neon Green)',
+    descricao: 'Verde vibrante #00E600 -> #00B300 com superfícies #051A05 e contraste AAA',
+    accentPrimary: '#008F00',
+    accentLight: '#00E600',
+    previewBg: '#051A05',
+  },
   BRONZE_EDITORIAL: {
     key: 'BRONZE_EDITORIAL',
-    nome: 'Bronze Editorial',
+    nome: 'Bronze Editorial (AutoMarket)',
     descricao: 'Acabamento mineral quente inspirado em galerias automotivas',
     accentPrimary: '#9A6B3B',
     accentLight: '#CFAF82',
@@ -63,7 +74,10 @@ export const AESTHETIC_THEMES: Record<AestheticThemeKey, AestheticThemeInfo> = {
 
 export interface CompanyBrandConfig {
   id?: string;
+  presetId: BrandPresetId;
   nome: string;
+  nomeTop: string;
+  nomeSub: string;
   slogan: string;
   logoUrl: string;
   tema: AestheticThemeKey;
@@ -78,37 +92,140 @@ export interface CompanyBrandConfig {
   descricao: string;
 }
 
-export const DEFAULT_COMPANY_BRAND: CompanyBrandConfig = {
-  nome: 'AutoMarket Select',
-  slogan: 'Showroom Multimarcas & Seminovos Periciados',
-  logoUrl: '',
-  tema: 'BRONZE_EDITORIAL',
-  endereco: 'Av. dos Autonomistas, 1500',
-  cidade: 'Vitória',
-  estado: 'ES',
-  cep: '29055000',
-  telefone: '(27) 99834-5027',
-  whatsapp: '5527998345027',
-  email: 'contato@automarket.com.br',
-  horarioFuncionamento: 'Seg-Sex: 8h às 18h | Sáb: 8h às 14h',
-  descricao:
-    'Showroom especializado em veículos seminovos selecionados, periciados com laudo cautelar 100% aprovado e garantia própria.',
+export const BRAND_PRESETS: Record<BrandPresetId, CompanyBrandConfig> = {
+  'rodrigo-veiculos': {
+    presetId: 'rodrigo-veiculos',
+    nome: 'Rodrigo Veículos',
+    nomeTop: 'RODRIGO',
+    nomeSub: 'VEÍCULOS',
+    slogan: 'Seminovos Selecionados • Linhares - ES',
+    logoUrl: '/images/logo-rodrigo-veiculos.png',
+    tema: 'RODRIGO_NEON_GREEN',
+    endereco: 'Av. Governador Lindemberg, 1250 — Centro',
+    cidade: 'Linhares',
+    estado: 'ES',
+    cep: '29900020',
+    telefone: '(27) 99834-5027',
+    whatsapp: '5527998345027',
+    email: 'contato@rodrigoveiculos.com.br',
+    horarioFuncionamento: 'Seg-Sex: 8h às 18h | Sáb: 8h às 13h',
+    descricao:
+      'Referência em seminovos periciados e veículos multimarcas em Linhares - ES. Procedência comprovada, taxas exclusivas e atendimento consultivo.',
+  },
+  default: {
+    presetId: 'default',
+    nome: 'AutoMarket Select',
+    nomeTop: 'AutoMarket',
+    nomeSub: 'Select',
+    slogan: 'Showroom Multimarcas & Seminovos Periciados',
+    logoUrl: '',
+    tema: 'BRONZE_EDITORIAL',
+    endereco: 'Av. dos Autonomistas, 1500',
+    cidade: 'Vitória',
+    estado: 'ES',
+    cep: '29055000',
+    telefone: '(27) 99834-5027',
+    whatsapp: '5527998345027',
+    email: 'contato@automarket.com.br',
+    horarioFuncionamento: 'Seg-Sex: 8h às 18h | Sáb: 8h às 14h',
+    descricao:
+      'Showroom especializado em veículos seminovos selecionados, periciados com laudo cautelar 100% aprovado e garantia própria.',
+  },
 };
 
-const STORAGE_KEY = 'automarket-company-brand-v2';
+export const DEFAULT_BRAND_PRESET_ID: BrandPresetId = 'rodrigo-veiculos';
+export const DEFAULT_COMPANY_BRAND: CompanyBrandConfig = BRAND_PRESETS[DEFAULT_BRAND_PRESET_ID];
+
+const PRESET_STORAGE_KEY = 'automarket-active-brand-preset-v1';
+const STORAGE_KEY = 'automarket-company-brand-v3';
+const CUSTOM_OVERRIDE_KEY = 'automarket-custom-brand-override-v1';
+
+export function resolveBrandPresetFromQuery(param: string | null): BrandPresetId | null {
+  if (!param) return null;
+  const clean = param.trim().toLowerCase();
+  if (clean === 'rodrigo' || clean === 'rodrigo-veiculos' || clean === 'linhares') {
+    return 'rodrigo-veiculos';
+  }
+  if (clean === 'default' || clean === 'automarket') {
+    return 'default';
+  }
+  return null;
+}
+
+export function resolvePublicAssetUrl(path: string): string {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
+    return path;
+  }
+  const basePath =
+    typeof window !== 'undefined' &&
+    (window.location.hostname.endsWith('github.io') ||
+      process.env.NEXT_PUBLIC_GITHUB_PAGES === 'true')
+      ? '/marketplace'
+      : '';
+  return `${basePath}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
+export function lerPresetAtivo(): BrandPresetId {
+  if (typeof window === 'undefined') return DEFAULT_BRAND_PRESET_ID;
+  try {
+    const queryBrand = resolveBrandPresetFromQuery(
+      new URLSearchParams(window.location.search).get('brand')
+    );
+    if (queryBrand) {
+      return queryBrand;
+    }
+    const saved = localStorage.getItem(PRESET_STORAGE_KEY);
+    if (saved === 'default' || saved === 'rodrigo-veiculos') {
+      return saved;
+    }
+  } catch {
+    // ignora erro de storage
+  }
+  return DEFAULT_BRAND_PRESET_ID;
+}
+
+export function aplicarDataBrandHTML(presetId: BrandPresetId, temaKey?: AestheticThemeKey) {
+  if (typeof document === 'undefined') return;
+  document.documentElement.setAttribute('data-brand', presetId);
+  const tema = temaKey
+    ? AESTHETIC_THEMES[temaKey]
+    : AESTHETIC_THEMES[BRAND_PRESETS[presetId].tema];
+
+  if (tema && temaKey && temaKey !== 'RODRIGO_NEON_GREEN' && temaKey !== 'BRONZE_EDITORIAL') {
+    document.documentElement.style.setProperty('--accent-bronze', tema.accentPrimary);
+    document.documentElement.style.setProperty('--accent-bronze-light', tema.accentLight);
+    document.documentElement.style.setProperty('--brand-primary', tema.accentLight);
+  } else {
+    // Remove overrides inline para deixar [data-brand="..."] em globals.css comandar toda a paleta
+    document.documentElement.style.removeProperty('--accent-bronze');
+    document.documentElement.style.removeProperty('--accent-bronze-light');
+    document.documentElement.style.removeProperty('--brand-primary');
+  }
+}
 
 export function aplicarTemaEsteticoCSS(temaKey: AestheticThemeKey) {
-  if (typeof document === 'undefined') return;
-  const tema =
-    AESTHETIC_THEMES[temaKey] || AESTHETIC_THEMES.BRONZE_EDITORIAL;
-  document.documentElement.style.setProperty(
-    '--accent-bronze',
-    tema.accentPrimary
-  );
-  document.documentElement.style.setProperty(
-    '--accent-bronze-light',
-    tema.accentLight
-  );
+  const presetId: BrandPresetId =
+    temaKey === 'RODRIGO_NEON_GREEN' ? 'rodrigo-veiculos' : lerPresetAtivo();
+  aplicarDataBrandHTML(presetId, temaKey);
+}
+
+export function aplicarPresetMarca(presetId: BrandPresetId): CompanyBrandConfig {
+  const preset = BRAND_PRESETS[presetId] || BRAND_PRESETS[DEFAULT_BRAND_PRESET_ID];
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(PRESET_STORAGE_KEY, preset.presetId);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(preset));
+      localStorage.removeItem(CUSTOM_OVERRIDE_KEY);
+    } catch {
+      // ignora erro de storage
+    }
+  }
+  aplicarDataBrandHTML(preset.presetId, preset.tema);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('automarket-brand-change'));
+  }
+  return preset;
 }
 
 export function salvarBrandLocal(config: Partial<CompanyBrandConfig>) {
@@ -117,7 +234,8 @@ export function salvarBrandLocal(config: Partial<CompanyBrandConfig>) {
     const atual = lerBrandLocal();
     const atualizado: CompanyBrandConfig = { ...atual, ...config };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(atualizado));
-    aplicarTemaEsteticoCSS(atualizado.tema);
+    localStorage.setItem(CUSTOM_OVERRIDE_KEY, JSON.stringify(config));
+    aplicarDataBrandHTML(atualizado.presetId, atualizado.tema);
     window.dispatchEvent(new Event('automarket-brand-change'));
   } catch {
     // ignora erro de storage
@@ -127,13 +245,26 @@ export function salvarBrandLocal(config: Partial<CompanyBrandConfig>) {
 export function lerBrandLocal(): CompanyBrandConfig {
   if (typeof window === 'undefined') return DEFAULT_COMPANY_BRAND;
   try {
+    const presetId = lerPresetAtivo();
+    const basePreset = BRAND_PRESETS[presetId];
+    const queryPreset = resolveBrandPresetFromQuery(
+      new URLSearchParams(window.location.search).get('brand')
+    );
+    if (queryPreset) {
+      return BRAND_PRESETS[queryPreset];
+    }
+
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_COMPANY_BRAND;
-    const parsed = JSON.parse(raw);
-    return {
-      ...DEFAULT_COMPANY_BRAND,
-      ...parsed,
-    };
+    const hasCustomOverride = localStorage.getItem(CUSTOM_OVERRIDE_KEY);
+    if (raw && hasCustomOverride) {
+      const parsed = JSON.parse(raw) as Partial<CompanyBrandConfig>;
+      return {
+        ...basePreset,
+        ...parsed,
+        presetId,
+      };
+    }
+    return basePreset;
   } catch {
     return DEFAULT_COMPANY_BRAND;
   }
@@ -143,46 +274,23 @@ export function useCompanyBrand(): CompanyBrandConfig {
   const [brand, setBrand] = useState<CompanyBrandConfig>(DEFAULT_COMPANY_BRAND);
 
   useEffect(() => {
-    const local = lerBrandLocal();
-    setBrand(local);
-    aplicarTemaEsteticoCSS(local.tema);
+    const queryPreset = resolveBrandPresetFromQuery(
+      new URLSearchParams(window.location.search).get('brand')
+    );
 
-    // Sincroniza com a loja principal do banco de dados
-    fetch('/api/lojas')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((json) => {
-        if (json?.success && Array.isArray(json.data) && json.data.length > 0) {
-          const lojaPrincipal = json.data[0];
-          const atualLocal = lerBrandLocal();
-          const sincronizado: CompanyBrandConfig = {
-            ...atualLocal,
-            id: lojaPrincipal.id,
-            nome: lojaPrincipal.nome || atualLocal.nome,
-            logoUrl: lojaPrincipal.logoUrl || atualLocal.logoUrl || '',
-            endereco: lojaPrincipal.endereco || atualLocal.endereco,
-            cidade: lojaPrincipal.cidade || atualLocal.cidade,
-            estado: lojaPrincipal.estado || atualLocal.estado,
-            cep: lojaPrincipal.cep || atualLocal.cep,
-            telefone: lojaPrincipal.telefone || atualLocal.telefone,
-            whatsapp: lojaPrincipal.whatsapp || atualLocal.whatsapp,
-            email: lojaPrincipal.email || atualLocal.email,
-            horarioFuncionamento:
-              lojaPrincipal.horarioFuncionamento ||
-              atualLocal.horarioFuncionamento,
-            descricao: lojaPrincipal.descricao || atualLocal.descricao,
-          };
-          setBrand(sincronizado);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(sincronizado));
-        }
-      })
-      .catch(() => {
-        // mantém config local
-      });
+    if (queryPreset) {
+      const applied = aplicarPresetMarca(queryPreset);
+      setBrand(applied);
+    } else {
+      const local = lerBrandLocal();
+      setBrand(local);
+      aplicarDataBrandHTML(local.presetId, local.tema);
+    }
 
     const handleUpdate = () => {
       const novo = lerBrandLocal();
       setBrand(novo);
-      aplicarTemaEsteticoCSS(novo.tema);
+      aplicarDataBrandHTML(novo.presetId, novo.tema);
     };
 
     window.addEventListener('automarket-brand-change', handleUpdate);
@@ -194,4 +302,32 @@ export function useCompanyBrand(): CompanyBrandConfig {
   }, []);
 
   return brand;
+}
+
+export function useBrandSwitcher() {
+  const brand = useCompanyBrand();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const switchBrand = useCallback((presetId: BrandPresetId) => {
+    aplicarPresetMarca(presetId);
+  }, []);
+
+  const toggleBrand = useCallback(() => {
+    const next: BrandPresetId =
+      brand.presetId === 'rodrigo-veiculos' ? 'default' : 'rodrigo-veiculos';
+    aplicarPresetMarca(next);
+    return next;
+  }, [brand.presetId]);
+
+  return {
+    brand,
+    activePresetId: brand.presetId,
+    switchBrand,
+    toggleBrand,
+    mounted,
+  };
 }
